@@ -1,0 +1,305 @@
+import { useState, useEffect } from "react";
+import { Card } from "./ui/card";
+import { Button } from "./ui/button";
+import { Input } from "./ui/input";
+import { Alert, AlertDescription } from "./ui/alert";
+import { Mail, CheckCircle2, AlertCircle, Clock, RefreshCw } from "lucide-react";
+import { BrandLogoCompact } from "./BrandLogo";
+import { toast } from "sonner@2.0.3";
+
+interface EmailVerificationProps {
+  email: string;
+  onVerificationComplete: () => void;
+  onResendEmail: () => void;
+  onLogout: () => void;
+}
+
+export function EmailVerification({ 
+  email, 
+  onVerificationComplete, 
+  onResendEmail,
+  onLogout 
+}: EmailVerificationProps) {
+  const [verificationCode, setVerificationCode] = useState("");
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [resendDisabled, setResendDisabled] = useState(false);
+  const [countdown, setCountdown] = useState(0);
+  const [attempts, setAttempts] = useState(0);
+
+  // Start countdown timer for resend button
+  useEffect(() => {
+    if (countdown > 0) {
+      const timer = setTimeout(() => setCountdown(countdown - 1), 1000);
+      return () => clearTimeout(timer);
+    } else {
+      setResendDisabled(false);
+    }
+  }, [countdown]);
+
+  const [generatedCode, setGeneratedCode] = useState("");
+  const [showCode, setShowCode] = useState(false);
+
+  // Generate verification code on mount (for demo purposes)
+  useEffect(() => {
+    const code = generateVerificationCode();
+    setGeneratedCode(code);
+    console.log("📧 Verification Code:", code); // In production, this would be sent via email
+    
+    // Store verification code
+    const verifications = JSON.parse(localStorage.getItem("emailVerifications") || "[]");
+    verifications.push({
+      email,
+      code,
+      createdAt: Date.now(),
+      expiresAt: Date.now() + 600000, // 10 minutes
+      verified: false
+    });
+    localStorage.setItem("emailVerifications", JSON.stringify(verifications));
+  }, [email]);
+
+  const generateVerificationCode = () => {
+    return Math.floor(100000 + Math.random() * 900000).toString();
+  };
+
+  const handleVerify = () => {
+    if (!verificationCode) {
+      toast.error("Please enter the verification code");
+      return;
+    }
+
+    if (verificationCode.length !== 6) {
+      toast.error("Verification code must be 6 digits");
+      return;
+    }
+
+    setIsVerifying(true);
+    setAttempts(attempts + 1);
+
+    setTimeout(() => {
+      const verifications = JSON.parse(localStorage.getItem("emailVerifications") || "[]");
+      const verification = verifications.find((v: any) => v.email === email && !v.verified);
+
+      if (!verification) {
+        toast.error("Verification code not found");
+        setIsVerifying(false);
+        return;
+      }
+
+      // Check if expired
+      if (Date.now() > verification.expiresAt) {
+        toast.error("Verification code has expired. Please request a new one.");
+        setIsVerifying(false);
+        return;
+      }
+
+      // Check if code matches
+      if (verification.code === verificationCode) {
+        // Mark as verified
+        verification.verified = true;
+        verification.verifiedAt = Date.now();
+        localStorage.setItem("emailVerifications", JSON.stringify(verifications));
+
+        // Update user as verified
+        const users = JSON.parse(localStorage.getItem("users") || "[]");
+        const userIndex = users.findIndex((u: any) => u.email === email);
+        if (userIndex !== -1) {
+          users[userIndex].emailVerified = true;
+          users[userIndex].verifiedAt = new Date().toISOString();
+          localStorage.setItem("users", JSON.stringify(users));
+        }
+
+        toast.success("Email verified successfully!");
+        setIsVerifying(false);
+        onVerificationComplete();
+      } else {
+        toast.error("Invalid verification code. Please try again.");
+        setIsVerifying(false);
+
+        // Lock after 5 failed attempts
+        if (attempts >= 4) {
+          toast.error("Too many failed attempts. Please request a new code.");
+          handleResendCode();
+        }
+      }
+    }, 1000);
+  };
+
+  const handleResendCode = () => {
+    if (resendDisabled) return;
+
+    setResendDisabled(true);
+    setCountdown(60); // 60 second cooldown
+    setAttempts(0);
+    setVerificationCode("");
+
+    // Generate new code
+    const code = generateVerificationCode();
+    setGeneratedCode(code);
+    console.log("📧 New Verification Code:", code);
+
+    // Update verification record
+    const verifications = JSON.parse(localStorage.getItem("emailVerifications") || "[]");
+    const verification = verifications.find((v: any) => v.email === email && !v.verified);
+    
+    if (verification) {
+      verification.code = code;
+      verification.createdAt = Date.now();
+      verification.expiresAt = Date.now() + 600000; // 10 minutes
+      localStorage.setItem("emailVerifications", JSON.stringify(verifications));
+    }
+
+    toast.success("New verification code generated");
+    onResendEmail();
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && verificationCode.length === 6) {
+      handleVerify();
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center p-4">
+      <Card className="w-full max-w-md p-6 sm:p-8">
+        <div className="text-center mb-6">
+          <BrandLogoCompact className="mx-auto mb-4" />
+          
+          <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Mail className="h-8 w-8 text-blue-600" />
+          </div>
+          
+          <h2 className="mb-2">Verify Your Email</h2>
+          <p className="text-sm text-gray-600">
+            We've sent a 6-digit verification code to
+          </p>
+          <p className="text-sm text-blue-600 mt-1">{email}</p>
+        </div>
+
+        <Alert className="bg-amber-50 border-amber-300 mb-6">
+          <AlertCircle className="h-4 w-4 text-amber-600" />
+          <AlertDescription className="text-amber-900 text-xs">
+            <strong>Demo Mode:</strong> Email sending is not configured. Your verification code is displayed below.
+          </AlertDescription>
+        </Alert>
+
+        <div className="mb-6 p-4 bg-green-50 border-2 border-green-300 rounded-lg">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-sm text-green-900">Your Verification Code:</p>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowCode(!showCode)}
+              className="text-xs h-auto py-1 px-2"
+            >
+              {showCode ? "Hide" : "Show"}
+            </Button>
+          </div>
+          {showCode && (
+            <div className="text-center">
+              <p className="text-3xl tracking-widest text-green-700 font-mono select-all">
+                {generatedCode}
+              </p>
+              <p className="text-xs text-green-600 mt-2">
+                Click to copy or type it in the field below
+              </p>
+            </div>
+          )}
+          {!showCode && (
+            <p className="text-xs text-green-600 text-center">
+              Click "Show" to reveal your code
+            </p>
+          )}
+        </div>
+
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <label htmlFor="code" className="text-sm">
+              Verification Code
+            </label>
+            <Input
+              id="code"
+              type="text"
+              placeholder="Enter 6-digit code"
+              value={verificationCode}
+              onChange={(e) => {
+                const value = e.target.value.replace(/\D/g, "").slice(0, 6);
+                setVerificationCode(value);
+              }}
+              onKeyPress={handleKeyPress}
+              disabled={isVerifying}
+              className="text-center text-2xl tracking-widest"
+              maxLength={6}
+              autoFocus
+            />
+            {verificationCode && verificationCode.length < 6 && (
+              <p className="text-xs text-gray-500 text-center">
+                {6 - verificationCode.length} digits remaining
+              </p>
+            )}
+          </div>
+
+          <Button 
+            onClick={handleVerify} 
+            className="w-full"
+            disabled={isVerifying || verificationCode.length !== 6}
+          >
+            {isVerifying ? (
+              <>
+                <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                Verifying...
+              </>
+            ) : (
+              <>
+                <CheckCircle2 className="h-4 w-4 mr-2" />
+                Verify Email
+              </>
+            )}
+          </Button>
+
+          <div className="text-center space-y-3">
+            <p className="text-xs text-gray-600">
+              Didn't receive the code?
+            </p>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleResendCode}
+              disabled={resendDisabled}
+              className="w-full"
+            >
+              <RefreshCw className="h-4 w-4 mr-2" />
+              {resendDisabled 
+                ? `Resend Code (${countdown}s)` 
+                : "Resend Code"
+              }
+            </Button>
+          </div>
+
+          {attempts > 2 && attempts < 5 && (
+            <Alert className="bg-orange-50 border-orange-200">
+              <AlertCircle className="h-4 w-4 text-orange-600" />
+              <AlertDescription className="text-orange-800 text-xs">
+                {5 - attempts} attempt{5 - attempts !== 1 ? 's' : ''} remaining before code reset
+              </AlertDescription>
+            </Alert>
+          )}
+        </div>
+
+        <div className="mt-6 pt-6 border-t text-center">
+          <p className="text-xs text-gray-600 mb-3">
+            Need help? Contact support at{" "}
+            <a href="mailto:support@fng.ng" className="text-blue-600 hover:underline">
+              support@fng.ng
+            </a>
+          </p>
+          <button
+            onClick={onLogout}
+            className="text-xs text-gray-500 hover:text-gray-700 hover:underline"
+          >
+            Wrong email? Sign out and try again
+          </button>
+        </div>
+      </Card>
+    </div>
+  );
+}
