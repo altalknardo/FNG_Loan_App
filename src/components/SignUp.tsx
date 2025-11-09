@@ -10,6 +10,8 @@ import { BrandLogo } from "./BrandLogo";
 import { User, Lock, Mail, Phone, MapPin, AlertCircle, CheckCircle2, Eye, EyeOff, ArrowRight, ArrowLeft, Sparkles, Smartphone } from "lucide-react";
 import { toast } from "sonner@2.0.3";
 import { motion, AnimatePresence } from "motion/react";
+import { useNavigate } from "react-router-dom";
+import { signUp, checkPhoneExists, type ApiError } from "../lib/auth-api";
 
 interface Props {
   onSignUp: (phoneNumber: string, userData: any) => void;
@@ -17,6 +19,7 @@ interface Props {
 }
 
 export function SignUp({ onSignUp, onSwitchToLogin }: Props) {
+  const navigate = useNavigate();
   const [step, setStep] = useState(1);
   
   // Step 1: Basic Info
@@ -41,6 +44,7 @@ export function SignUp({ onSignUp, onSwitchToLogin }: Props) {
   
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [checkingPhone, setCheckingPhone] = useState(false);
 
   const totalSteps = 4;
   const progress = (step / totalSteps) * 100;
@@ -62,7 +66,7 @@ export function SignUp({ onSignUp, onSwitchToLogin }: Props) {
     
     // If starts with 0, replace with +234
     if (cleaned.startsWith('0')) {
-      cleaned = '+234' + cleaned.slice(1);
+      cleaned = '+1' + cleaned.slice(1);
     }
     
     // If starts with 234, add +
@@ -71,14 +75,14 @@ export function SignUp({ onSignUp, onSwitchToLogin }: Props) {
     }
     
     // If doesn't start with +234, assume it's missing
-    else if (!cleaned.startsWith('+234')) {
-      cleaned = '+234' + cleaned;
+    else if (!cleaned.startsWith('+1')) {
+      cleaned = '+1' + cleaned;
     }
     
     return cleaned;
   };
 
-  const validateStep1 = () => {
+  const validateStep1 = async () => {
     if (!fullName.trim()) {
       setError("Please enter your full name");
       return false;
@@ -102,15 +106,30 @@ export function SignUp({ onSignUp, onSwitchToLogin }: Props) {
       return false;
     }
     
-    // Check if phone number already exists
-    const existingUsers = JSON.parse(localStorage.getItem("registeredUsers") || "[]");
+    // Check if phone number already exists via API
     const normalizedPhone = normalizePhoneNumber(phone);
-    if (existingUsers.some((u: any) => {
-      const userPhone = u.phoneNumber || u.phone; // Check both properties for backward compatibility
-      return userPhone && normalizePhoneNumber(userPhone) === normalizedPhone;
-    })) {
-      setError("This phone number is already registered. Please login instead.");
-      return false;
+    setCheckingPhone(true);
+    try {
+      const phoneExists = await checkPhoneExists(normalizedPhone);
+      if (phoneExists) {
+        setError("This phone number is already registered. Please login instead.");
+        setCheckingPhone(false);
+        return false;
+      }
+    } catch (error) {
+      // If API check fails, fall back to localStorage check for backward compatibility
+      console.warn("Phone check API failed, using localStorage fallback:", error);
+      const existingUsers = JSON.parse(localStorage.getItem("registeredUsers") || "[]");
+      if (existingUsers.some((u: any) => {
+        const userPhone = u.phoneNumber || u.phone;
+        return userPhone && normalizePhoneNumber(userPhone) === normalizedPhone;
+      })) {
+        setError("This phone number is already registered. Please login instead.");
+        setCheckingPhone(false);
+        return false;
+      }
+    } finally {
+      setCheckingPhone(false);
     }
     
     return true;
@@ -168,10 +187,13 @@ export function SignUp({ onSignUp, onSwitchToLogin }: Props) {
     return true;
   };
 
-  const handleNext = () => {
+  const handleNext = async () => {
     setError("");
     
-    if (step === 1 && !validateStep1()) return;
+    if (step === 1) {
+      const isValid = await validateStep1();
+      if (!isValid) return;
+    }
     if (step === 2 && !validateStep2()) return;
     if (step === 3 && !validateStep3()) return;
     
@@ -187,7 +209,7 @@ export function SignUp({ onSignUp, onSwitchToLogin }: Props) {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
 
@@ -195,37 +217,67 @@ export function SignUp({ onSignUp, onSwitchToLogin }: Props) {
 
     setIsLoading(true);
 
-    // Simulate registration
-    setTimeout(() => {
+    try {
       const normalizedPhone = normalizePhoneNumber(phone);
       
-      const userData = {
-        fullName,
-        email: email || "", // Email is optional
-        phoneNumber: normalizedPhone,
-        address,
-        city,
-        state,
+      // Prepare signup data
+      const signupData = {
+        fullName: fullName.trim(),
+        email: email?.trim() || undefined, // Only include if provided
+        phone: normalizedPhone,
         password,
-        createdAt: new Date().toISOString(),
-        role: "user",
-        status: "active",
-        phoneVerified: false
+        streetAddress: address.trim(),
+        city: city.trim(),
+        state: state.trim(),
       };
 
-      // Save to localStorage
-      const existingUsers = JSON.parse(localStorage.getItem("registeredUsers") || "[]");
-      existingUsers.push(userData);
-      localStorage.setItem("registeredUsers", JSON.stringify(existingUsers));
+      // Call API to sign up
+      const response = await signUp(signupData);
 
-      // Also save to users array for verification
-      const users = JSON.parse(localStorage.getItem("users") || "[]");
-      users.push(userData);
-      localStorage.setItem("users", JSON.stringify(users));
+      if (response.success && response.data) {
+        // Store auth token if provided by backend
+        if (response.data.token) {
+          localStorage.setItem("authToken", response.data.token);
+        }
 
-      toast.success("Account created successfully! Please verify your phone number.");
-      onSignUp(normalizedPhone, userData);
-    }, 1000);
+        // Store user data in localStorage for backward compatibility
+        // (Remove this once fully migrated to API)
+        const userData = {
+          ...response.data,
+          // password, // Note: In production, never store password
+          address,
+          city,
+          state,
+        };
+
+        const existingUsers = JSON.parse(localStorage.getItem("registeredUsers") || "[]");
+        existingUsers.push(userData);
+        localStorage.setItem("registeredUsers", JSON.stringify(existingUsers));
+
+        const users = JSON.parse(localStorage.getItem("users") || "[]");
+        users.push(userData);
+        localStorage.setItem("users", JSON.stringify(users));
+
+        toast.success(response.message || "Account created successfully! Please verify your phone number.");
+        onSignUp(normalizedPhone, response.data.user);
+      } else {
+        setError(response.message || "Registration failed. Please try again.");
+        setIsLoading(false);
+      }
+    } catch (error: any) {
+      // Handle API errors
+      const apiError = error as ApiError;
+      
+      // Check for field-specific errors
+      if (apiError.errors && Object.keys(apiError.errors).length > 0) {
+        const firstError = Object.values(apiError.errors)[0][0];
+        setError(firstError || apiError.message);
+      } else {
+        setError(apiError.message || "Registration failed. Please try again.");
+      }
+      
+      setIsLoading(false);
+    }
   };
 
   const passwordStrength = () => {
@@ -370,7 +422,7 @@ export function SignUp({ onSignUp, onSwitchToLogin }: Props) {
                         value={phone}
                         onChange={(e) => setPhone(e.target.value)}
                         className="pl-10 h-11 border-gray-200 focus:border-green-600 focus:ring-green-600"
-                        disabled={isLoading}
+                        disabled={isLoading || checkingPhone}
                       />
                     </div>
                     <p className="text-xs text-gray-500">Your primary identifier (e.g., 08012345678 or +2348012345678)</p>
@@ -622,15 +674,24 @@ export function SignUp({ onSignUp, onSwitchToLogin }: Props) {
                 </Button>
               )}
               
-              {step < totalSteps ? (
+                  {step < totalSteps ? (
                 <Button
                   type="button"
                   onClick={handleNext}
-                  disabled={isLoading}
+                  disabled={isLoading || checkingPhone}
                   className="flex-1 h-11 bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 hover:from-blue-700 hover:via-purple-700 hover:to-indigo-700 text-white shadow-lg hover:shadow-xl transition-all"
                 >
-                  Next
-                  <ArrowRight className="ml-2 h-4 w-4" />
+                  {checkingPhone ? (
+                    <>
+                      <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                      Checking...
+                    </>
+                  ) : (
+                    <>
+                      Next
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </>
+                  )}
                 </Button>
               ) : (
                 <Button
@@ -659,7 +720,7 @@ export function SignUp({ onSignUp, onSwitchToLogin }: Props) {
             <p className="text-sm text-gray-600">
               Already have an account?{" "}
               <button
-                onClick={onSwitchToLogin}
+                onClick={() => navigate("/login")}
                 className="text-purple-600 hover:text-purple-700 hover:underline"
                 type="button"
               >

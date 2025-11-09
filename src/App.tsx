@@ -1,4 +1,6 @@
 import { useState, useEffect } from "react";
+import { Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
+import { ProtectedRoute } from "./components/ProtectedRoute";
 import { Dashboard } from "./components/Dashboard";
 import { LoanSection } from "./components/LoanSection";
 import { Contributions } from "./components/Contributions";
@@ -48,24 +50,16 @@ import { Alert, AlertDescription } from "./components/ui/alert";
 import { Home, DollarSign, Wallet, History, User, Settings, LayoutDashboard, UserCheck, FileCheck, Activity, Database, LogOut, Building2, Menu, X, Clock, XCircle, Users, RefreshCw, Edit, TrendingDown, BarChart3, FileText, HandCoins, MessageCircle, Headphones, Receipt, AlertTriangle } from "lucide-react";
 
 export default function App() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  
   const [showSplash, setShowSplash] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [userEmail, setUserEmail] = useState("");
   const [isAdmin, setIsAdmin] = useState(false);
-  const [showAdminLogin, setShowAdminLogin] = useState(false);
-  const [showSignUp, setShowSignUp] = useState(false);
-  const [showForgotPassword, setShowForgotPassword] = useState(false);
-  const [showResetPassword, setShowResetPassword] = useState(false);
-  const [showTerms, setShowTerms] = useState(false);
-  const [showPrivacy, setShowPrivacy] = useState(false);
-  const [showAbout, setShowAbout] = useState(false);
-  const [showContact, setShowContact] = useState(false);
-  const [showEmailVerification, setShowEmailVerification] = useState(false);
-  const [pendingVerificationEmail, setPendingVerificationEmail] = useState("");
-  const [showSMSVerification, setShowSMSVerification] = useState(false);
-  const [pendingVerificationPhone, setPendingVerificationPhone] = useState("");
   const [resetToken, setResetToken] = useState("");
   const [resetEmail, setResetEmail] = useState("");
+  const [pendingVerificationPhone, setPendingVerificationPhone] = useState("");
   const [activeTab, setActiveTab] = useState("dashboard");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -74,26 +68,20 @@ export default function App() {
   // Onboarding hook
   const { shouldShowOnboarding, setShouldShowOnboarding } = useOnboarding(isAdmin);
 
-  // Check if accessing admin via URL (hash, query param, or path)
-  const checkAdminAccess = () => {
-    // Check hash-based routing (works in development)
-    if (window.location.hash === '#/admin' || window.location.hash === '#admin') {
-      return true;
+  // Check authentication status from localStorage on mount
+  useEffect(() => {
+    const token = localStorage.getItem("authToken");
+    const users = JSON.parse(localStorage.getItem("users") || "[]");
+    if (token && users.length > 0) {
+      const user = users[users.length - 1];
+      setIsAuthenticated(true);
+      setUserEmail(user.email || user.phoneNumber);
+      setIsAdmin(user.role === "admin");
+      if (user.role === "admin") {
+        setActiveTab("admin-dashboard");
+      }
     }
-    
-    // Check query parameter (alternative access method)
-    const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get('admin') === 'true') {
-      return true;
-    }
-    
-    // Check pathname (works in production with proper routing)
-    if (window.location.pathname === '/admin') {
-      return true;
-    }
-    
-    return false;
-  };
+  }, []);
 
   // Check if splash screen should be shown (only on first visit)
   useEffect(() => {
@@ -101,29 +89,7 @@ export default function App() {
     if (hasSeenSplash === "true") {
       setShowSplash(false);
     }
-    
-    // Check if accessing admin via URL
-    if (checkAdminAccess() && !isAuthenticated) {
-      setShowAdminLogin(true);
-    }
   }, []);
-  
-  // Listen for URL changes to detect admin access
-  useEffect(() => {
-    const handleLocationChange = () => {
-      if (checkAdminAccess() && !isAuthenticated) {
-        setShowAdminLogin(true);
-      }
-    };
-    
-    window.addEventListener('popstate', handleLocationChange);
-    window.addEventListener('hashchange', handleLocationChange);
-    
-    return () => {
-      window.removeEventListener('popstate', handleLocationChange);
-      window.removeEventListener('hashchange', handleLocationChange);
-    };
-  }, [isAuthenticated]);
 
   // Initialize balances and check KYC status on mount
   useEffect(() => {
@@ -315,52 +281,47 @@ export default function App() {
     );
     
     if (user && !user.phoneVerified) {
-      // Show SMS verification screen
+      // Navigate to phone verification
       setPendingVerificationPhone(user.phoneNumber);
-      setShowSMSVerification(true);
+      navigate("/verify-phone");
       return;
     }
 
     setUserEmail(user ? (user.email || user.phoneNumber) : emailOrPhone);
     setIsAuthenticated(true);
     setIsAdmin(false);
-    setShowAdminLogin(false);
-    setShowSignUp(false);
     checkKycStatus();
+    navigate("/");
   };
 
   const handleSignUp = (phoneNumber: string, userData: any) => {
     // New users need phone verification
     setPendingVerificationPhone(phoneNumber);
-    setShowSMSVerification(true);
+    navigate("/verify-phone");
   };
 
   const handleAdminLogin = (email: string) => {
     setUserEmail(email);
     setIsAuthenticated(true);
     setIsAdmin(true);
-    setShowAdminLogin(false);
-    setShowSignUp(false);
     setActiveTab("admin-dashboard");
+    navigate("/admin");
   };
 
   const handleLogout = () => {
     setIsAuthenticated(false);
     setUserEmail("");
     setIsAdmin(false);
-    setShowAdminLogin(false);
-    setShowSignUp(false);
-    setShowEmailVerification(false);
-    setPendingVerificationEmail("");
-    setShowSMSVerification(false);
     setPendingVerificationPhone("");
     setActiveTab("dashboard");
     setKycStatus("not_submitted");
     setShouldShowOnboarding(false);
-    // Clear admin role and permissions
+    // Clear auth data
+    localStorage.removeItem("authToken");
     localStorage.removeItem("currentAdminRole");
     localStorage.removeItem("currentAdminEmail");
     localStorage.removeItem("currentAdminPermissions");
+    navigate("/login");
   };
 
 
@@ -370,212 +331,140 @@ export default function App() {
     sessionStorage.setItem("hasSeenSplash", "true");
   };
 
+  const handleVerificationComplete = () => {
+    const users = JSON.parse(localStorage.getItem("users") || "[]");
+    const user = users.find((u: any) => u.phoneNumber === pendingVerificationPhone);
+    setUserEmail(user ? (user.email || user.phoneNumber) : pendingVerificationPhone);
+    setIsAuthenticated(true);
+    setIsAdmin(false);
+    setPendingVerificationPhone("");
+    setKycStatus("not_submitted");
+    navigate("/");
+  };
+
   // Show splash screen first
   if (showSplash) {
     return <SplashScreen onComplete={handleSplashComplete} />;
   }
 
-  // Show public pages (accessible without authentication)
-  if (showTerms) {
-    return (
-      <>
-        <TermsOfService onBack={() => setShowTerms(false)} />
-        <Toaster />
-      </>
-    );
-  }
-
-  if (showPrivacy) {
-    return (
-      <>
-        <PrivacyPolicy onBack={() => setShowPrivacy(false)} />
-        <Toaster />
-      </>
-    );
-  }
-
-  if (showAbout) {
-    return (
-      <>
-        <AboutUs onBack={() => setShowAbout(false)} />
-        <Toaster />
-      </>
-    );
-  }
-
-  if (showContact) {
-    return (
-      <>
-        <ContactPage onBack={() => setShowContact(false)} />
-        <Toaster />
-      </>
-    );
-  }
-
-  // Show SMS verification if needed (primary method)
-  if (showSMSVerification && pendingVerificationPhone) {
-    return (
-      <>
-        <SMSVerification
-          phoneNumber={pendingVerificationPhone}
-          onVerificationComplete={() => {
-            // Complete authentication after verification
-            const users = JSON.parse(localStorage.getItem("users") || "[]");
-            const user = users.find((u: any) => u.phoneNumber === pendingVerificationPhone);
-            setUserEmail(user ? (user.email || user.phoneNumber) : pendingVerificationPhone);
-            setIsAuthenticated(true);
-            setIsAdmin(false);
-            setShowSMSVerification(false);
-            setPendingVerificationPhone("");
-            setShowAdminLogin(false);
-            setShowSignUp(false);
-            setKycStatus("not_submitted");
-          }}
-          onResendSMS={() => {
-            // Resend logic handled in component
-          }}
-          onLogout={() => {
-            setShowSMSVerification(false);
-            setPendingVerificationPhone("");
-          }}
-        />
-        <Toaster />
-      </>
-    );
-  }
-
-  // Show email verification if needed (legacy/fallback)
-  if (showEmailVerification && pendingVerificationEmail) {
-    return (
-      <>
-        <EmailVerification
-          email={pendingVerificationEmail}
-          onVerificationComplete={() => {
-            // Complete authentication after verification
-            setUserEmail(pendingVerificationEmail);
-            setIsAuthenticated(true);
-            setIsAdmin(false);
-            setShowEmailVerification(false);
-            setPendingVerificationEmail("");
-            setShowAdminLogin(false);
-            setShowSignUp(false);
-            setKycStatus("not_submitted");
-          }}
-          onResendEmail={() => {
-            // Resend logic handled in component
-          }}
-          onLogout={() => {
-            setShowEmailVerification(false);
-            setPendingVerificationEmail("");
-          }}
-        />
-        <Toaster />
-      </>
-    );
-  }
-
-  // Show login screens if not authenticated
-  if (!isAuthenticated) {
-    if (showResetPassword && resetToken && resetEmail) {
-      return (
-        <>
-          <ResetPassword
-            email={resetEmail}
-            token={resetToken}
-            onResetComplete={() => {
-              setShowResetPassword(false);
-              setResetToken("");
-              setResetEmail("");
-              setShowForgotPassword(false);
-            }}
-            onCancel={() => {
-              setShowResetPassword(false);
-              setResetToken("");
-              setResetEmail("");
-              setShowForgotPassword(false);
-            }}
-          />
-          <Toaster />
-        </>
-      );
-    }
-
-    if (showForgotPassword) {
-      return (
-        <>
-          <ForgotPassword
-            onBack={() => setShowForgotPassword(false)}
-            onResetRequested={(email, token) => {
-              setResetEmail(email);
-              setResetToken(token);
-              setShowResetPassword(true);
-            }}
-          />
-          <Toaster />
-        </>
-      );
-    }
-
-    if (showSignUp) {
-      return (
-        <>
-          <SignUp
-            onSignUp={handleSignUp}
-            onSwitchToLogin={() => setShowSignUp(false)}
-          />
-          <Toaster />
-        </>
-      );
-    }
-    
-    // Show admin login only if accessing via admin URL
-    if (checkAdminAccess()) {
-      return (
-        <>
-          <AdminLogin 
-            onLogin={handleAdminLogin}
-            onBack={() => {
-              setShowAdminLogin(false);
-              // Clear admin access indicators from URL
-              window.location.hash = '';
-              const url = new URL(window.location.href);
-              url.searchParams.delete('admin');
-              window.history.pushState({}, '', url.pathname);
-            }}
-          />
-          <Toaster />
-        </>
-      );
-    }
-    
-    return (
-      <>
-        <Login 
-          onLogin={handleUserLogin}
-          onAdminLogin={handleAdminLogin}
-          onSwitchToSignUp={() => setShowSignUp(true)}
-          onForgotPassword={() => setShowForgotPassword(true)}
-        />
-        <Toaster />
-      </>
-    );
-  }
-
-  // Show KYC registration if user hasn't submitted yet
-  if (!isAdmin && kycStatus === "not_submitted") {
-    return (
-      <>
-        <KYCRegistration onRegistrationComplete={handleRegistrationComplete} />
-        <Toaster />
-      </>
-    );
-  }
-
-  // Show pending message if KYC is under review
-  const showKYCPendingBanner = !isAdmin && kycStatus === "pending";
-  const showKYCRejectedBanner = !isAdmin && kycStatus === "rejected";
-
+  // Main routing structure
   return (
+    <>
+      <Routes>
+        {/* Public Routes */}
+        <Route path="/login" element={
+          !isAuthenticated ? (
+            <Login 
+              onLogin={handleUserLogin}
+              onAdminLogin={handleAdminLogin}
+              onSwitchToSignUp={() => navigate("/signup")}
+              onForgotPassword={() => navigate("/forgot-password")}
+            />
+          ) : (
+            <Navigate to="/" replace />
+          )
+        } />
+        
+        <Route path="/signup" element={
+          !isAuthenticated ? (
+            <SignUp
+              onSignUp={handleSignUp}
+              onSwitchToLogin={() => navigate("/login")}
+            />
+          ) : (
+            <Navigate to="/" replace />
+          )
+        } />
+
+        <Route path="/forgot-password" element={
+          !isAuthenticated ? (
+            <ForgotPassword
+              onBack={() => navigate("/login")}
+              onResetRequested={(email, token) => {
+                setResetEmail(email);
+                setResetToken(token);
+                navigate(`/reset-password?email=${encodeURIComponent(email)}&token=${token}`);
+              }}
+            />
+          ) : (
+            <Navigate to="/" replace />
+          )
+        } />
+
+        <Route path="/reset-password" element={
+          !isAuthenticated ? (
+            <ResetPasswordRoute />
+          ) : (
+            <Navigate to="/" replace />
+          )
+        } />
+
+        <Route path="/verify-phone" element={
+          pendingVerificationPhone ? (
+            <SMSVerification
+              phoneNumber={pendingVerificationPhone}
+              onVerificationComplete={handleVerificationComplete}
+              onResendSMS={() => {}}
+              onLogout={() => {
+                setPendingVerificationPhone("");
+                navigate("/login");
+              }}
+            />
+          ) : (
+            <Navigate to="/login" replace />
+          )
+        } />
+
+        <Route path="/admin/login" element={
+          !isAuthenticated ? (
+            <AdminLogin 
+              onLogin={handleAdminLogin}
+              onBack={() => navigate("/login")}
+            />
+          ) : (
+            <Navigate to="/admin" replace />
+          )
+        } />
+
+        <Route path="/terms" element={<TermsOfService onBack={() => navigate(-1)} />} />
+        <Route path="/privacy" element={<PrivacyPolicy onBack={() => navigate(-1)} />} />
+        <Route path="/about" element={<AboutUs onBack={() => navigate(-1)} />} />
+        <Route path="/contact" element={<ContactPage onBack={() => navigate(-1)} />} />
+
+        {/* Protected Routes */}
+        <Route path="/" element={
+          <ProtectedRoute isAuthenticated={isAuthenticated}>
+            {!isAdmin && kycStatus === "not_submitted" ? (
+              <KYCRegistration onRegistrationComplete={handleRegistrationComplete} />
+            ) : (
+              <DashboardContent />
+            )}
+          </ProtectedRoute>
+        } />
+
+        <Route path="/admin" element={
+          <ProtectedRoute isAuthenticated={isAuthenticated} redirectTo="/admin/login">
+            {isAdmin ? (
+              <AdminDashboardContent />
+            ) : (
+              <Navigate to="/" replace />
+            )}
+          </ProtectedRoute>
+        } />
+
+        {/* Catch all - redirect to login */}
+        <Route path="*" element={<Navigate to={isAuthenticated ? "/" : "/login"} replace />} />
+      </Routes>
+      <Toaster />
+    </>
+  );
+
+  // Dashboard Content Component
+  function DashboardContent() {
+    const showKYCPendingBanner = !isAdmin && kycStatus === "pending";
+    const showKYCRejectedBanner = !isAdmin && kycStatus === "rejected";
+
+    return (
     <div className="min-h-screen bg-gray-50">
       {/* Session Timeout Handler */}
       <SessionTimeoutHandler
@@ -820,7 +709,208 @@ export default function App() {
         </>
       )}
 
-      <Toaster />
     </div>
-  );
+    );
+  }
+
+  // Reset Password Route Component
+  function ResetPasswordRoute() {
+    const searchParams = new URLSearchParams(location.search);
+    const email = searchParams.get("email") || resetEmail;
+    const token = searchParams.get("token") || resetToken;
+
+    if (!email || !token) {
+      return <Navigate to="/login" replace />;
+    }
+
+    return (
+      <ResetPassword
+        email={email}
+        token={token}
+        onResetComplete={() => {
+          setResetToken("");
+          setResetEmail("");
+          navigate("/login");
+        }}
+        onCancel={() => {
+          setResetToken("");
+          setResetEmail("");
+          navigate("/login");
+        }}
+      />
+    );
+  }
+
+  // Admin Dashboard Content Component
+  function AdminDashboardContent() {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        {/* Session Timeout Handler */}
+        <SessionTimeoutHandler
+          isAuthenticated={isAuthenticated}
+          onLogout={handleLogout}
+          timeoutMinutes={30}
+          warningMinutes={5}
+        />
+
+        {/* PWA Update Prompt */}
+        <PWAUpdatePrompt />
+
+        {/* Offline Indicator */}
+        <OfflineIndicator />
+
+        {/* Onboarding Tutorial */}
+        {isAuthenticated && shouldShowOnboarding && (
+          <OnboardingTutorial
+            isAdmin={isAdmin}
+            onComplete={() => setShouldShowOnboarding(false)}
+            onSkip={() => setShouldShowOnboarding(false)}
+          />
+        )}
+
+        {/* Header */}
+        <header className="bg-white border-b sticky top-0 z-30 shadow-sm">
+          <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6">
+            <div className="flex items-center justify-between h-14 sm:h-16 gap-2 sm:gap-3">
+              <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+                <button
+                  onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                  className="lg:hidden p-1.5 sm:p-2 hover:bg-gray-100 rounded-lg flex-shrink-0"
+                  aria-label="Toggle menu"
+                >
+                  <Menu className="h-5 w-5 text-gray-700" />
+                </button>
+                
+                <div className="flex-shrink-0">
+                  <BrandLogoCompact />
+                </div>
+                
+                <span className="hidden xs:inline-flex items-center px-2 py-1 rounded-md bg-orange-100 text-orange-700 text-xs flex-shrink-0">
+                  Admin
+                </span>
+                
+                <div className="hidden lg:block min-w-0 flex-1">
+                  <p className="text-xs text-gray-600 truncate max-w-[180px] xl:max-w-[250px]">{userEmail}</p>
+                </div>
+              </div>
+              
+              <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleLogout}
+                  className="hidden sm:flex items-center h-9 px-3"
+                >
+                  <LogOut className="h-4 w-4 mr-2" />
+                  <span className="text-sm">Logout</span>
+                </Button>
+                
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleLogout}
+                  className="flex sm:hidden items-center h-9 px-2.5"
+                  title="Logout"
+                >
+                  <LogOut className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        {/* Main Content */}
+        <main 
+          className={`mx-auto px-4 sm:px-6 py-4 sm:py-6 transition-all duration-300 ${
+            sidebarCollapsed 
+              ? "lg:ml-16 max-w-7xl" 
+              : "lg:ml-64 max-w-7xl"
+          }`}
+        >
+          {renderAdminContent()}
+        </main>
+
+        {/* Admin Sidebar - Desktop */}
+        <aside 
+          className={`hidden lg:block fixed left-0 top-0 bottom-0 bg-white border-r pt-16 sm:pt-20 overflow-y-auto transition-all duration-300 z-20 ${
+            sidebarCollapsed ? "w-16" : "w-64"
+          }`}
+        >
+          <button
+            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+            className="absolute -right-3 top-20 sm:top-24 bg-white border rounded-full p-1.5 shadow-md hover:shadow-lg transition-shadow"
+            title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+          >
+            {sidebarCollapsed ? (
+              <Menu className="h-4 w-4 text-gray-600" />
+            ) : (
+              <X className="h-4 w-4 text-gray-600" />
+            )}
+          </button>
+
+          <nav className="p-4 space-y-2">
+            {adminNavItems.map((item) => {
+              const Icon = item.icon;
+              const isActive = activeTab === item.id;
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => setActiveTab(item.id)}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+                    isActive
+                      ? "bg-blue-600 text-white"
+                      : "text-gray-700 hover:bg-gray-100"
+                  } ${sidebarCollapsed ? "justify-center" : ""}`}
+                  title={sidebarCollapsed ? item.label : ""}
+                >
+                  <Icon className="h-5 w-5 flex-shrink-0" />
+                  {!sidebarCollapsed && <span className="text-sm">{item.label}</span>}
+                </button>
+              );
+            })}
+          </nav>
+        </aside>
+
+        {/* Admin Mobile Menu */}
+        {mobileMenuOpen && (
+          <>
+            <div 
+              className="lg:hidden fixed inset-0 bg-black/50 z-40"
+              onClick={() => setMobileMenuOpen(false)}
+            />
+            
+            <aside className="lg:hidden fixed left-0 top-0 bottom-0 w-64 bg-white border-r pt-16 overflow-y-auto z-50 shadow-xl">
+              <div className="p-4 border-b">
+                <p className="text-xs text-gray-600 truncate">{userEmail}</p>
+              </div>
+              
+              <nav className="p-4 space-y-2">
+                {adminNavItems.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = activeTab === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      onClick={() => {
+                        setActiveTab(item.id);
+                        setMobileMenuOpen(false);
+                      }}
+                      className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+                        isActive
+                          ? "bg-blue-600 text-white"
+                          : "text-gray-700 hover:bg-gray-100"
+                      }`}
+                    >
+                      <Icon className="h-5 w-5 flex-shrink-0" />
+                      <span className="text-sm">{item.label}</span>
+                    </button>
+                  );
+                })}
+              </nav>
+            </aside>
+          </>
+        )}
+      </div>
+    );
+  }
 }
