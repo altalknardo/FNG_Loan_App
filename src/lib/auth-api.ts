@@ -142,8 +142,8 @@ export const verifyPhone = async (phoneNumber: string, otp: string): Promise<{ s
  */
 export const resendOTP = async (phoneNumber: string): Promise<{ success: boolean; message: string }> => {
   try {
-    const response = await api.post<{ success: boolean; message: string }>('/auth/resend-otp', {
-      phoneNumber,
+    const response = await api.post<{ success: boolean; message: string }>('user/resend-otp', {
+      phone: phoneNumber,
     });
     return response.data;
   } catch (error: any) {
