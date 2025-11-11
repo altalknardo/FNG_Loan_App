@@ -68,6 +68,18 @@ export default function App() {
   // Onboarding hook
   const { shouldShowOnboarding, setShouldShowOnboarding } = useOnboarding(isAdmin);
 
+  // Helper function to check if KYC is completed
+  const isKycCompleted = () => {
+    if (isAdmin) return true;
+    
+    const users = JSON.parse(localStorage.getItem("users") || "[]");
+    const user = users.find((u: any) => 
+      u.email === userEmail || u.phoneNumber === userEmail
+    );
+    
+    return user?.kyc === true;
+  };
+
   // Check authentication status from localStorage on mount
   useEffect(() => {
     const token = localStorage.getItem("authToken");
@@ -80,6 +92,8 @@ export default function App() {
       if (user.role === "admin") {
         setActiveTab("admin-dashboard");
       }
+      // Check KYC status
+      checkKycStatus();
     }
   }, []);
 
@@ -167,20 +181,88 @@ export default function App() {
     // In admin mode, bypass KYC check
     if (isAdmin) return;
 
-    const submissions = JSON.parse(localStorage.getItem("kycSubmissions") || "[]");
-    
-    // For demo purposes, check the most recent submission
-    // In production, you'd check for the current user's submission
-    if (submissions.length > 0) {
-      const latestSubmission = submissions[submissions.length - 1];
-      setKycStatus(latestSubmission.status);
+    // Check KYC status from user data first
+    const users = JSON.parse(localStorage.getItem("users") || "[]");
+    const user = users.find((u: any) => 
+      u.email === userEmail || u.phoneNumber === userEmail
+    );
+
+    if (user) {
+      // Check if user has kycCompleted flag
+      if (!user.kyc) {
+        setKycStatus("not_submitted");
+        return;
+      }
+
+      // Check kycStatus from user data
+      if (user.kyc) {
+        setKycStatus(user.kyc);
+        return;
+      }
+
+      // Fallback: Check from kycSubmissions
+      const submissions = JSON.parse(localStorage.getItem("kycSubmissions") || "[]");
+      const userSubmission = submissions.find((s: any) => 
+        s.phone === user.phoneNumber || 
+        s.phone === user.phone || 
+        s.email === user.email
+      );
+
+      if (userSubmission) {
+        setKycStatus(userSubmission.status);
+        // Update user data with status
+        const userIndex = users.findIndex((u: any) => 
+          u.email === userEmail || u.phoneNumber === userEmail
+        );
+        if (userIndex !== -1) {
+          users[userIndex].kyc = userSubmission.status;
+          localStorage.setItem("users", JSON.stringify(users));
+        }
+      } else {
+        setKycStatus("not_submitted");
+      }
     } else {
-      setKycStatus("not_submitted");
+      // No user found, check from submissions
+      const submissions = JSON.parse(localStorage.getItem("kycSubmissions") || "[]");
+      if (submissions.length > 0) {
+        const latestSubmission = submissions[submissions.length - 1];
+        setKycStatus(latestSubmission.status);
+      } else {
+        setKycStatus("not_submitted");
+      }
     }
   };
 
   const handleRegistrationComplete = () => {
     setKycStatus("pending");
+    
+    // Update user data with KYC completion
+    const users = JSON.parse(localStorage.getItem("users") || "[]");
+    const userIndex = users.findIndex((u: any) => 
+      u.email === userEmail || u.phoneNumber === userEmail
+    );
+    
+    if (userIndex !== -1) {
+      users[userIndex] = {
+        ...users[userIndex],
+        kyc: true
+      };
+      localStorage.setItem("users", JSON.stringify(users));
+    }
+
+    // Also update registeredUsers
+    const registeredUsers = JSON.parse(localStorage.getItem("registeredUsers") || "[]");
+    const registeredUserIndex = registeredUsers.findIndex((u: any) => 
+      u.email === userEmail || u.phoneNumber === userEmail
+    );
+    
+    if (registeredUserIndex !== -1) {
+      registeredUsers[registeredUserIndex] = {
+        ...registeredUsers[registeredUserIndex],
+        kyc: true
+      };
+      localStorage.setItem("registeredUsers", JSON.stringify(registeredUsers));
+    }
   };
 
   const renderUserContent = () => {
@@ -287,6 +369,17 @@ export default function App() {
       return;
     }
 
+    // Check if KYC is completed
+    if (user && !user.kycCompleted) {
+      // User needs to complete KYC before accessing dashboard
+      setUserEmail(user ? (user.email || user.phoneNumber) : emailOrPhone);
+      setIsAuthenticated(true);
+      setIsAdmin(false);
+      setKycStatus("not_submitted");
+      navigate("/"); // Will show KYC form
+      return;
+    }
+
     setUserEmail(user ? (user.email || user.phoneNumber) : emailOrPhone);
     setIsAuthenticated(true);
     setIsAdmin(false);
@@ -338,7 +431,14 @@ export default function App() {
     setIsAuthenticated(true);
     setIsAdmin(false);
     setPendingVerificationPhone("");
-    setKycStatus("not_submitted");
+    
+    // Check KYC status - if not completed, show KYC form
+    if (user && !user?.kyc) {
+      setKycStatus("not_submitted");
+    } else {
+      checkKycStatus();
+    }
+    
     navigate("/");
   };
 
@@ -434,8 +534,11 @@ export default function App() {
         {/* Protected Routes */}
         <Route path="/" element={
           <ProtectedRoute isAuthenticated={isAuthenticated}>
-            {!isAdmin && kycStatus === "not_submitted" ? (
-              <KYCRegistration onRegistrationComplete={handleRegistrationComplete} />
+            {!isAdmin && (kycStatus === "not_submitted" || !isKycCompleted()) ? (
+              <KYCRegistration 
+                onRegistrationComplete={handleRegistrationComplete}
+                userEmail={userEmail}
+              />
             ) : (
               <DashboardContent />
             )}

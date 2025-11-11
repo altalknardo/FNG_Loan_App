@@ -89,12 +89,13 @@ export function Login({
 
       if (response.success && response.data) {
         // Store auth token
-        if (response.data.token) {
-          localStorage.setItem("authToken", response.data.token);
+        if (response?.token) {
+          localStorage.setItem("authToken", response?.token || response.data.token);
+          localStorage.setItem("userData", JSON.stringify(response?.data));
         }
 
         // Store user data in localStorage for backward compatibility
-        const userData = response?.data;
+        const userData = response?.data?.user || response?.data;
         const users = JSON.parse(localStorage.getItem("users") || "[]");
         const userIndex = users.findIndex(
           (u: any) =>
@@ -102,9 +103,14 @@ export function Login({
             u.email === userData?.email
         );
         if (userIndex !== -1) {
-          users[userIndex] = { ...users[userIndex], ...userData };
+          users[userIndex] = { 
+            ...users[userIndex], 
+            ...userData
+          };
         } else {
-          users.push(userData);
+          users.push({
+            ...userData
+          });
         }
         localStorage.setItem("users", JSON.stringify(users));
 
@@ -135,7 +141,15 @@ export function Login({
           return;
         }
 
-        toast.success(response.message || "Login successful!");
+        // Check if KYC is completed
+        // Note: We allow login but will redirect to KYC form in App.tsx
+        // This allows user to be authenticated and see the KYC form
+        if (!userData?.kyc) {
+          toast.info("Please complete your KYC registration to access all features");
+        } else {
+          toast.success(response.message || "Login successful!");
+        }
+        
         onLogin(userData.email || userData.phoneNumber);
       } else {
         setError(response.message || "Login failed. Please try again.");
@@ -235,6 +249,13 @@ export function Login({
     );
 
     if (validUser) {
+      // Check if KYC is completed (for fallback mode)
+      if (!validUser.kyc && validUser.role !== "admin") {
+        setError("KYC registration is required. Please complete your KYC form to access your account.");
+        setIsLoading(false);
+        return;
+      }
+
       if (rememberMe) {
         localStorage.setItem("savedUsername", username);
         localStorage.setItem("savedPassword", password);

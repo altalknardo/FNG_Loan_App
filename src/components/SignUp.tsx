@@ -247,7 +247,7 @@ export function SignUp({ onSignUp, onSwitchToLogin }: Props) {
           // password, // Note: In production, never store password
           address,
           city,
-          state,
+          state
         };
 
         const existingUsers = JSON.parse(localStorage.getItem("registeredUsers") || "[]");
