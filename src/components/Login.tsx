@@ -6,18 +6,36 @@ import { Label } from "./ui/label";
 import { Checkbox } from "./ui/checkbox";
 import { Alert, AlertDescription } from "./ui/alert";
 import { BrandLogo } from "./BrandLogo";
-import { Lock, Mail, AlertCircle, Phone, ArrowRight, Sparkles, Eye, EyeOff } from "lucide-react";
+import {
+  Lock,
+  Mail,
+  AlertCircle,
+  Phone,
+  ArrowRight,
+  Sparkles,
+  Eye,
+  EyeOff,
+} from "lucide-react";
 import { toast } from "sonner@2.0.3";
 import { motion } from "motion/react";
+import { useNavigate } from "react-router-dom";
+import { login, type ApiError } from "../lib/auth-api";
+import { UserData } from "lib/userData";
 
 interface Props {
-  onLogin: (emailOrPhone: string) => void;
+  onLogin: (userData: UserData) => void;
   onSwitchToSignUp: () => void;
   onForgotPassword: () => void;
   onAdminLogin?: (emailOrPhone: string) => void;
 }
 
-export function Login({ onLogin, onSwitchToSignUp, onForgotPassword, onAdminLogin }: Props) {
+export function Login({
+  onLogin,
+  onSwitchToSignUp,
+  onForgotPassword,
+  onAdminLogin,
+}: Props) {
+  const navigate = useNavigate();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
@@ -44,10 +62,10 @@ export function Login({ onLogin, onSwitchToSignUp, onForgotPassword, onAdminLogi
 
   const isValidPhone = (str: string) => {
     // Nigerian phone numbers: 11 digits starting with 0, or 10 digits, or with +234
-    return /^(\+?234|0)?[789]\d{9}$/.test(str.replace(/\s/g, ''));
+    return /^(\+?234|0)?[789]\d{9}$/.test(str.replace(/\s/g, ""));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
 
@@ -63,27 +81,53 @@ export function Login({ onLogin, onSwitchToSignUp, onForgotPassword, onAdminLogi
 
     setIsLoading(true);
 
-    // Simulate login
-    setTimeout(() => {
-      // Admin credentials - check first
-      const demoAdmins = [
-        { email: "admin@fng.com", phone: "09012345678", password: "admin123", status: "active" },
-        { email: "superadmin@fng.com", phone: "09087654321", password: "super123", status: "active" }
-      ];
-      
-      // Get registered admins from settings
-      const registeredAdmins = JSON.parse(localStorage.getItem("adminUsers") || "[]");
-      const allAdmins = [...demoAdmins, ...registeredAdmins];
+    try {
+      // Call API to login
+      const response = await login({
+        emailOrPhone: username.trim(),
+        password,
+      });
 
-      const validAdmin = allAdmins.find(
-        a => (a.email === username || a.phone === username) && a.password === password && a.status === "active"
-      );
+      if (response.success && response.data) {
+        // Store auth token
+        if (response?.token) {
+          localStorage.setItem(
+            "authToken",
+            response?.token || response.data.token
+          );
+          localStorage.setItem(
+            "userData",
+            JSON.stringify({
+              ...response?.data,
+              token: response?.token || response.data.token,
+            })
+          );
+        }
 
-      if (validAdmin && onAdminLogin) {
+        // Store user data in localStorage for backward compatibility
+        const userData = response?.data?.user || response?.data;
+        const users = JSON.parse(localStorage.getItem("users") || "[]");
+        const userIndex = users.findIndex(
+          (u: any) =>
+            u.phoneNumber === userData?.phoneNumber ||
+            u.email === userData?.email
+        );
+        if (userIndex !== -1) {
+          users[userIndex] = {
+            ...users[userIndex],
+            ...userData,
+          };
+        } else {
+          users.push({
+            ...userData,
+          });
+        }
+        localStorage.setItem("users", JSON.stringify(users));
+
         // Save credentials if remember me is checked
         if (rememberMe) {
           localStorage.setItem("savedUsername", username);
-          localStorage.setItem("savedPassword", password);
+          // localStorage.setItem("savedPassword", password);
           localStorage.setItem("rememberMe", "true");
         } else {
           localStorage.removeItem("savedUsername");
@@ -91,45 +135,168 @@ export function Login({ onLogin, onSwitchToSignUp, onForgotPassword, onAdminLogi
           localStorage.removeItem("rememberMe");
         }
 
-        toast.success("Admin login successful!");
-        onAdminLogin(username);
+        // Check if user is admin
+        if (userData.role === "admin" && onAdminLogin) {
+          toast.success("Admin login successful!");
+          onAdminLogin(userData.email || userData.phoneNumber);
+          return;
+        }
+
+        // Check if phone verification is required
+        if (!userData.phoneVerified) {
+          // User needs phone verification
+          toast.info("Please verify your phone number to continue");
+          // The onLogin callback will handle showing verification screen
+          onLogin(userData);
+          return;
+        }
+
+        // Check if KYC is completed
+        // Note: We allow login but will redirect to KYC form in App.tsx
+        // This allows user to be authenticated and see the KYC form
+        if (!userData?.kyc) {
+          toast.info(
+            "Please complete your KYC registration to access all features"
+          );
+        } else {
+          toast.success(response.message || "Login successful!");
+        }
+
+        onLogin(userData || {});
+      } else {
+        setError(response.message || "Login failed. Please try again.");
+        setIsLoading(false);
+      }
+    } catch (error: any) {
+      // Handle API errors
+      const apiError = error as ApiError;
+
+      // Check for field-specific errors
+      if (apiError.errors && Object.keys(apiError.errors).length > 0) {
+        const firstError = Object.values(apiError.errors)[0][0];
+        setError(firstError || apiError.message);
+      } else {
+        setError(
+          apiError.message ||
+            "Invalid credentials. Please check your email/phone and password."
+        );
+      }
+
+      setIsLoading(false);
+
+      // Fallback to localStorage for demo/admin users if API fails
+      if (
+        apiError.status === 404 ||
+        apiError.status === 500 ||
+        !apiError.status
+      ) {
+        console.warn("API login failed, trying localStorage fallback");
+        handleLocalStorageFallback();
+      }
+    }
+  };
+
+  // Fallback to localStorage for demo/admin users
+  const handleLocalStorageFallback = () => {
+    // Admin credentials - check first
+    const demoAdmins = [
+      {
+        email: "admin@fng.com",
+        phone: "09012345678",
+        password: "admin123",
+        status: "active",
+      },
+      {
+        email: "superadmin@fng.com",
+        phone: "09087654321",
+        password: "super123",
+        status: "active",
+      },
+    ];
+
+    const registeredAdmins = JSON.parse(
+      localStorage.getItem("adminUsers") || "[]"
+    );
+    const allAdmins = [...demoAdmins, ...registeredAdmins];
+
+    const validAdmin = allAdmins.find(
+      (a) =>
+        (a.email === username || a.phone === username) &&
+        a.password === password &&
+        a.status === "active"
+    );
+
+    if (validAdmin && onAdminLogin) {
+      if (rememberMe) {
+        localStorage.setItem("savedUsername", username);
+        localStorage.setItem("savedPassword", password);
+        localStorage.setItem("rememberMe", "true");
+      } else {
+        localStorage.removeItem("savedUsername");
+        localStorage.removeItem("savedPassword");
+        localStorage.removeItem("rememberMe");
+      }
+
+      toast.success("Admin login successful! (Fallback mode)");
+      onAdminLogin(username);
+      setIsLoading(false);
+      return;
+    }
+
+    // Demo credentials - accept email or phone
+    const demoUsers = [
+      { email: "user@fng.com", phone: "08012345678", password: "user123" },
+      {
+        email: "customer@fng.com",
+        phone: "08087654321",
+        password: "customer123",
+      },
+      { email: "demo@fng.com", phone: "07011111111", password: "demo123" },
+    ];
+
+    const registeredUsers = JSON.parse(
+      localStorage.getItem("registeredUsers") || "[]"
+    );
+    const allUsers = [...demoUsers, ...registeredUsers];
+    const userData = JSON.parse(localStorage.getItem("userData") || "");
+
+    const validUser = allUsers.find(
+      (u) =>
+        (u.email === username ||
+          u.phone === username ||
+          u.phoneNumber === username) &&
+        u.password === password
+    );
+
+    if (validUser) {
+      // Check if KYC is completed (for fallback mode)
+      if (!validUser.kyc && validUser.role !== "admin") {
+        setError(
+          "KYC registration is required. Please complete your KYC form to access your account."
+        );
+        setIsLoading(false);
         return;
       }
 
-      // Demo credentials - accept email or phone
-      const demoUsers = [
-        { email: "user@fng.com", phone: "08012345678", password: "user123" },
-        { email: "customer@fng.com", phone: "08087654321", password: "customer123" },
-        { email: "demo@fng.com", phone: "07011111111", password: "demo123" }
-      ];
-
-      // Check registered users from sign up
-      const registeredUsers = JSON.parse(localStorage.getItem("registeredUsers") || "[]");
-      const allUsers = [...demoUsers, ...registeredUsers];
-
-      const validUser = allUsers.find(
-        u => (u.email === username || u.phone === username || u.phoneNumber === username) && u.password === password
-      );
-
-      if (validUser) {
-        // Save credentials if remember me is checked
-        if (rememberMe) {
-          localStorage.setItem("savedUsername", username);
-          localStorage.setItem("savedPassword", password);
-          localStorage.setItem("rememberMe", "true");
-        } else {
-          localStorage.removeItem("savedUsername");
-          localStorage.removeItem("savedPassword");
-          localStorage.removeItem("rememberMe");
-        }
-
-        toast.success("Login successful!");
-        onLogin(username);
+      if (rememberMe) {
+        localStorage.setItem("savedUsername", username);
+        localStorage.setItem("savedPassword", password);
+        localStorage.setItem("rememberMe", "true");
       } else {
-        setError("Invalid credentials. Please check your email/phone and password.");
-        setIsLoading(false);
+        localStorage.removeItem("savedUsername");
+        localStorage.removeItem("savedPassword");
+        localStorage.removeItem("rememberMe");
       }
-    }, 1000);
+
+      toast.success("Login successful! (Fallback mode)");
+      onLogin(userData?.email || userData?.phoneNumber ? userData : validUser);
+      setIsLoading(false);
+    } else {
+      setError(
+        "Invalid credentials. Please check your email/phone and password."
+      );
+      setIsLoading(false);
+    }
   };
 
   const inputIcon = isValidEmail(username) ? Mail : Phone;
@@ -169,7 +336,7 @@ export function Login({ onLogin, onSwitchToSignUp, onForgotPassword, onAdminLogi
           {/* Logo */}
           <div className="text-center mb-6">
             <BrandLogo size="md" showFullName animated />
-            <motion.p 
+            <motion.p
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.3 }}
@@ -189,7 +356,8 @@ export function Login({ onLogin, onSwitchToSignUp, onForgotPassword, onAdminLogi
                 <Input
                   id="username"
                   type="text"
-                  placeholder="email@example.com or 08012345678"
+                  // placeholder="email@example.com or 08012345678"
+                  placeholder="email@example.com"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   className="pl-10 h-11 border-gray-200 focus:border-purple-600 focus:ring-purple-600"
@@ -232,7 +400,9 @@ export function Login({ onLogin, onSwitchToSignUp, onForgotPassword, onAdminLogi
                 <Checkbox
                   id="remember"
                   checked={rememberMe}
-                  onCheckedChange={(checked) => setRememberMe(checked as boolean)}
+                  onCheckedChange={(checked) =>
+                    setRememberMe(checked as boolean)
+                  }
                   disabled={isLoading}
                 />
                 <Label
@@ -244,7 +414,7 @@ export function Login({ onLogin, onSwitchToSignUp, onForgotPassword, onAdminLogi
               </div>
               <button
                 type="button"
-                onClick={onForgotPassword}
+                onClick={() => navigate("/forgot-password")}
                 className="text-sm text-purple-600 hover:text-purple-700 hover:underline"
               >
                 Forgot password?
@@ -283,7 +453,7 @@ export function Login({ onLogin, onSwitchToSignUp, onForgotPassword, onAdminLogi
               <p className="text-sm text-gray-600">
                 Don't have an account?{" "}
                 <button
-                  onClick={onSwitchToSignUp}
+                  onClick={() => navigate("/signup")}
                   className="text-purple-600 hover:text-purple-700 hover:underline"
                   type="button"
                 >
@@ -294,42 +464,49 @@ export function Login({ onLogin, onSwitchToSignUp, onForgotPassword, onAdminLogi
           </form>
 
           {/* Demo Credentials */}
-          <div className="mt-6">
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-gray-200" />
+          {false && (
+            <div className="mt-6">
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-gray-200" />
+                </div>
+                <div className="relative flex justify-center text-sm">
+                  <span className="px-2 bg-white text-gray-500">
+                    Demo Credentials
+                  </span>
+                </div>
               </div>
-              <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-white text-gray-500">Demo Credentials</span>
-              </div>
-            </div>
 
-            <div className="mt-4">
-              {/* Regular User Account */}
-              <div className="p-4 bg-gradient-to-br from-blue-50 to-purple-50 rounded-lg border border-blue-100">
-                <p className="text-sm text-gray-700 mb-2">Test Account:</p>
-                <div className="space-y-1 text-sm">
-                  <div className="flex items-center gap-2 text-gray-600">
-                    <Mail className="h-3 w-3" />
-                    <span>user@fng.com</span>
-                    <span className="text-gray-400">or</span>
-                    <Phone className="h-3 w-3" />
-                    <span>08012345678</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-gray-600">
-                    <Lock className="h-3 w-3" />
-                    <span>user123</span>
+              <div className="mt-4">
+                {/* Regular User Account */}
+                <div className="p-4 bg-gradient-to-br from-blue-50 to-purple-50 rounded-lg border border-blue-100">
+                  <p className="text-sm text-gray-700 mb-2">Test Account:</p>
+                  <div className="space-y-1 text-sm">
+                    <div className="flex items-center gap-2 text-gray-600">
+                      <Mail className="h-3 w-3" />
+                      <span>user@fng.com</span>
+                      <span className="text-gray-400">or</span>
+                      <Phone className="h-3 w-3" />
+                      <span>08012345678</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-gray-600">
+                      <Lock className="h-3 w-3" />
+                      <span>user123</span>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
+          )}
 
           {/* Support */}
           <div className="mt-6 text-center">
             <p className="text-xs text-gray-500">
               Need help? Contact{" "}
-              <a href="mailto:support@fng.com" className="text-purple-600 hover:underline">
+              <a
+                href="mailto:support@fng.com"
+                className="text-purple-600 hover:underline"
+              >
                 support@fng.com
               </a>
             </p>

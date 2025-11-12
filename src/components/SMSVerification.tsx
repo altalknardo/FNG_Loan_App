@@ -6,6 +6,7 @@ import { Alert, AlertDescription } from "./ui/alert";
 import { Smartphone, CheckCircle2, AlertCircle, Clock, RefreshCw } from "lucide-react";
 import { BrandLogoCompact } from "./BrandLogo";
 import { toast } from "sonner@2.0.3";
+import { verifyPhone, resendOTP, type ApiError } from "../lib/auth-api";
 
 interface SMSVerificationProps {
   phoneNumber: string;
@@ -22,9 +23,11 @@ export function SMSVerification({
 }: SMSVerificationProps) {
   const [verificationCode, setVerificationCode] = useState("");
   const [isVerifying, setIsVerifying] = useState(false);
+  const [isResending, setIsResending] = useState(false);
   const [resendDisabled, setResendDisabled] = useState(false);
   const [countdown, setCountdown] = useState(0);
   const [attempts, setAttempts] = useState(0);
+  const [error, setError] = useState("");
   const [generatedCode, setGeneratedCode] = useState("");
   const [showCode, setShowCode] = useState(false);
 
@@ -38,13 +41,15 @@ export function SMSVerification({
     }
   }, [countdown]);
 
-  // Generate verification code on mount (for demo purposes)
+  // Generate verification code on mount (for demo/fallback purposes)
   useEffect(() => {
+    // For demo mode, generate a code and show it
+    // In production, the backend should send the OTP via SMS
     const code = generateVerificationCode();
     setGeneratedCode(code);
-    console.log("📱 SMS Verification Code:", code); // In production, this would be sent via SMS
+    console.log("📱 SMS Verification Code (Demo):", code);
     
-    // Store verification code
+    // Store verification code in localStorage for fallback
     const verifications = JSON.parse(localStorage.getItem("smsVerifications") || "[]");
     verifications.push({
       phoneNumber,
@@ -60,45 +65,29 @@ export function SMSVerification({
     return Math.floor(100000 + Math.random() * 900000).toString();
   };
 
-  const handleVerify = () => {
+  const handleVerify = async () => {
     if (!verificationCode) {
+      setError("Please enter the verification code");
       toast.error("Please enter the verification code");
       return;
     }
 
     if (verificationCode.length !== 6) {
+      setError("Verification code must be 6 digits");
       toast.error("Verification code must be 6 digits");
       return;
     }
 
     setIsVerifying(true);
+    setError("");
     setAttempts(attempts + 1);
 
-    setTimeout(() => {
-      const verifications = JSON.parse(localStorage.getItem("smsVerifications") || "[]");
-      const verification = verifications.find((v: any) => v.phoneNumber === phoneNumber && !v.verified);
+    try {
+      // Call API to verify phone number
+      const response = await verifyPhone(phoneNumber, verificationCode);
 
-      if (!verification) {
-        toast.error("Verification code not found");
-        setIsVerifying(false);
-        return;
-      }
-
-      // Check if expired
-      if (Date.now() > verification.expiresAt) {
-        toast.error("Verification code has expired. Please request a new one.");
-        setIsVerifying(false);
-        return;
-      }
-
-      // Check if code matches
-      if (verification.code === verificationCode) {
-        // Mark as verified
-        verification.verified = true;
-        verification.verifiedAt = Date.now();
-        localStorage.setItem("smsVerifications", JSON.stringify(verifications));
-
-        // Update user as verified
+      if (response.success) {
+        // Update user as verified in localStorage for backward compatibility
         const users = JSON.parse(localStorage.getItem("users") || "[]");
         const userIndex = users.findIndex((u: any) => u.phoneNumber === phoneNumber);
         if (userIndex !== -1) {
@@ -107,48 +96,103 @@ export function SMSVerification({
           localStorage.setItem("users", JSON.stringify(users));
         }
 
-        toast.success("Phone number verified successfully!");
+        // Mark verification as complete in localStorage
+        const verifications = JSON.parse(localStorage.getItem("smsVerifications") || "[]");
+        const verification = verifications.find((v: any) => v.phoneNumber === phoneNumber && !v.verified);
+        if (verification) {
+          verification.verified = true;
+          verification.verifiedAt = Date.now();
+          localStorage.setItem("smsVerifications", JSON.stringify(verifications));
+        }
+
+        toast.success(response.message || "Phone number verified successfully!");
         setIsVerifying(false);
         onVerificationComplete();
       } else {
-        toast.error("Invalid verification code. Please try again.");
+        setError(response.message || "Verification failed. Please try again.");
         setIsVerifying(false);
-
-        // Lock after 5 failed attempts
-        if (attempts >= 4) {
-          toast.error("Too many failed attempts. Please request a new code.");
-          handleResendCode();
-        }
       }
-    }, 1000);
+    } catch (error: any) {
+      // Handle API errors
+      const apiError = error as ApiError;
+      setError(apiError.message || "Verification failed. Please try again.");
+      setIsVerifying(false);
+
+      // Lock after 5 failed attempts
+      if (attempts >= 4) {
+        toast.error("Too many failed attempts. Please request a new code.");
+        handleResendCode();
+      } else {
+        toast.error(apiError.message || "Invalid verification code. Please try again.");
+      }
+    }
   };
 
-  const handleResendCode = () => {
-    if (resendDisabled) return;
+  const handleResendCode = async () => {
+    if (resendDisabled || isResending) return;
 
+    setIsResending(true);
+    setError("");
     setResendDisabled(true);
     setCountdown(60); // 60 second cooldown
     setAttempts(0);
     setVerificationCode("");
 
-    // Generate new code
-    const code = generateVerificationCode();
-    setGeneratedCode(code);
-    console.log("📱 New SMS Verification Code:", code);
+    try {
+      // Call API to resend OTP
+      const response = await resendOTP(phoneNumber);
 
-    // Update verification record
-    const verifications = JSON.parse(localStorage.getItem("smsVerifications") || "[]");
-    const verification = verifications.find((v: any) => v.phoneNumber === phoneNumber && !v.verified);
-    
-    if (verification) {
-      verification.code = code;
-      verification.createdAt = Date.now();
-      verification.expiresAt = Date.now() + 600000; // 10 minutes
-      localStorage.setItem("smsVerifications", JSON.stringify(verifications));
+      if (response.success) {
+        // Generate new code for demo/fallback
+        const code = generateVerificationCode();
+        setGeneratedCode(code);
+        console.log("📱 New SMS Verification Code (Demo):", code);
+
+        // Update verification record in localStorage for fallback
+        const verifications = JSON.parse(localStorage.getItem("smsVerifications") || "[]");
+        const verification = verifications.find((v: any) => v.phoneNumber === phoneNumber && !v.verified);
+        
+        if (verification) {
+          verification.code = code;
+          verification.createdAt = Date.now();
+          verification.expiresAt = Date.now() + 600000; // 10 minutes
+          localStorage.setItem("smsVerifications", JSON.stringify(verifications));
+        }
+
+        toast.success(response.message || "New verification code sent successfully!");
+        onResendSMS();
+      } else {
+        setError(response.message || "Failed to resend code. Please try again.");
+        toast.error(response.message || "Failed to resend code. Please try again.");
+        setResendDisabled(false);
+        setCountdown(0);
+      }
+    } catch (error: any) {
+      // Handle API errors - fall back to localStorage method
+      const apiError = error as ApiError;
+      console.warn("Resend OTP API failed, using fallback:", apiError);
+      
+      // Fallback: Generate new code locally
+      const code = generateVerificationCode();
+      setGeneratedCode(code);
+      console.log("📱 New SMS Verification Code (Fallback):", code);
+
+      // Update verification record
+      const verifications = JSON.parse(localStorage.getItem("smsVerifications") || "[]");
+      const verification = verifications.find((v: any) => v.phoneNumber === phoneNumber && !v.verified);
+      
+      if (verification) {
+        verification.code = code;
+        verification.createdAt = Date.now();
+        verification.expiresAt = Date.now() + 600000; // 10 minutes
+        localStorage.setItem("smsVerifications", JSON.stringify(verifications));
+      }
+
+      toast.success("New verification code generated (fallback mode)");
+      onResendSMS();
+    } finally {
+      setIsResending(false);
     }
-
-    toast.success("New verification code generated");
-    onResendSMS();
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -184,14 +228,14 @@ export function SMSVerification({
           <p className="text-sm text-green-600 mt-1">{formatPhoneNumber(phoneNumber)}</p>
         </div>
 
-        <Alert className="bg-amber-50 border-amber-300 mb-6">
+        {/* <Alert className="bg-amber-50 border-amber-300 mb-6">
           <AlertCircle className="h-4 w-4 text-amber-600" />
           <AlertDescription className="text-amber-900 text-xs">
             <strong>Demo Mode:</strong> SMS sending is not configured. Your verification code is displayed below.
           </AlertDescription>
-        </Alert>
+        </Alert> */}
 
-        <div className="mb-6 p-4 bg-green-50 border-2 border-green-300 rounded-lg">
+        {/* <div className="mb-6 p-4 bg-green-50 border-2 border-green-300 rounded-lg">
           <div className="flex items-center justify-between mb-2">
             <p className="text-sm text-green-900">Your Verification Code:</p>
             <Button
@@ -218,9 +262,18 @@ export function SMSVerification({
               Click "Show" to reveal your code
             </p>
           )}
-        </div>
+        </div> */}
 
         <div className="space-y-4">
+          {error && (
+            <Alert className="bg-red-50 border-red-200">
+              <AlertCircle className="h-4 w-4 text-red-600" />
+              <AlertDescription className="text-red-800 text-sm">
+                {error}
+              </AlertDescription>
+            </Alert>
+          )}
+
           <div className="space-y-2">
             <label htmlFor="code" className="text-sm">
               Verification Code
@@ -233,6 +286,7 @@ export function SMSVerification({
               onChange={(e) => {
                 const value = e.target.value.replace(/\D/g, "").slice(0, 6);
                 setVerificationCode(value);
+                setError(""); // Clear error when user types
               }}
               onKeyPress={handleKeyPress}
               disabled={isVerifying}
@@ -273,14 +327,23 @@ export function SMSVerification({
               variant="outline"
               size="sm"
               onClick={handleResendCode}
-              disabled={resendDisabled}
+              disabled={resendDisabled || isResending}
               className="w-full"
             >
-              <RefreshCw className="h-4 w-4 mr-2" />
-              {resendDisabled 
-                ? `Resend Code (${countdown}s)` 
-                : "Resend Code"
-              }
+              {isResending ? (
+                <>
+                  <div className="h-4 w-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin mr-2" />
+                  Sending...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  {resendDisabled 
+                    ? `Resend Code (${countdown}s)` 
+                    : "Resend Code"
+                  }
+                </>
+              )}
             </Button>
           </div>
 
