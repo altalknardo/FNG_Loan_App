@@ -20,9 +20,10 @@ import { toast } from "sonner@2.0.3";
 import { motion } from "motion/react";
 import { useNavigate } from "react-router-dom";
 import { login, type ApiError } from "../lib/auth-api";
+import { UserData } from "lib/userData";
 
 interface Props {
-  onLogin: (emailOrPhone: string) => void;
+  onLogin: (userData: UserData) => void;
   onSwitchToSignUp: () => void;
   onForgotPassword: () => void;
   onAdminLogin?: (emailOrPhone: string) => void;
@@ -90,8 +91,17 @@ export function Login({
       if (response.success && response.data) {
         // Store auth token
         if (response?.token) {
-          localStorage.setItem("authToken", response?.token || response.data.token);
-          localStorage.setItem("userData", JSON.stringify(response?.data));
+          localStorage.setItem(
+            "authToken",
+            response?.token || response.data.token
+          );
+          localStorage.setItem(
+            "userData",
+            JSON.stringify({
+              ...response?.data,
+              token: response?.token || response.data.token,
+            })
+          );
         }
 
         // Store user data in localStorage for backward compatibility
@@ -103,13 +113,13 @@ export function Login({
             u.email === userData?.email
         );
         if (userIndex !== -1) {
-          users[userIndex] = { 
-            ...users[userIndex], 
-            ...userData
+          users[userIndex] = {
+            ...users[userIndex],
+            ...userData,
           };
         } else {
           users.push({
-            ...userData
+            ...userData,
           });
         }
         localStorage.setItem("users", JSON.stringify(users));
@@ -137,7 +147,7 @@ export function Login({
           // User needs phone verification
           toast.info("Please verify your phone number to continue");
           // The onLogin callback will handle showing verification screen
-          onLogin(userData.phoneNumber);
+          onLogin(userData);
           return;
         }
 
@@ -145,12 +155,14 @@ export function Login({
         // Note: We allow login but will redirect to KYC form in App.tsx
         // This allows user to be authenticated and see the KYC form
         if (!userData?.kyc) {
-          toast.info("Please complete your KYC registration to access all features");
+          toast.info(
+            "Please complete your KYC registration to access all features"
+          );
         } else {
           toast.success(response.message || "Login successful!");
         }
-        
-        onLogin(userData.email || userData.phoneNumber);
+
+        onLogin(userData || {});
       } else {
         setError(response.message || "Login failed. Please try again.");
         setIsLoading(false);
@@ -164,13 +176,20 @@ export function Login({
         const firstError = Object.values(apiError.errors)[0][0];
         setError(firstError || apiError.message);
       } else {
-        setError(apiError.message || "Invalid credentials. Please check your email/phone and password.");
+        setError(
+          apiError.message ||
+            "Invalid credentials. Please check your email/phone and password."
+        );
       }
 
       setIsLoading(false);
 
       // Fallback to localStorage for demo/admin users if API fails
-      if (apiError.status === 404 || apiError.status === 500 || !apiError.status) {
+      if (
+        apiError.status === 404 ||
+        apiError.status === 500 ||
+        !apiError.status
+      ) {
         console.warn("API login failed, trying localStorage fallback");
         handleLocalStorageFallback();
       }
@@ -239,6 +258,7 @@ export function Login({
       localStorage.getItem("registeredUsers") || "[]"
     );
     const allUsers = [...demoUsers, ...registeredUsers];
+    const userData = JSON.parse(localStorage.getItem("userData") || "");
 
     const validUser = allUsers.find(
       (u) =>
@@ -251,7 +271,9 @@ export function Login({
     if (validUser) {
       // Check if KYC is completed (for fallback mode)
       if (!validUser.kyc && validUser.role !== "admin") {
-        setError("KYC registration is required. Please complete your KYC form to access your account.");
+        setError(
+          "KYC registration is required. Please complete your KYC form to access your account."
+        );
         setIsLoading(false);
         return;
       }
@@ -267,10 +289,12 @@ export function Login({
       }
 
       toast.success("Login successful! (Fallback mode)");
-      onLogin(username);
+      onLogin(userData?.email || userData?.phoneNumber ? userData : validUser);
       setIsLoading(false);
     } else {
-      setError("Invalid credentials. Please check your email/phone and password.");
+      setError(
+        "Invalid credentials. Please check your email/phone and password."
+      );
       setIsLoading(false);
     }
   };
@@ -332,7 +356,8 @@ export function Login({
                 <Input
                   id="username"
                   type="text"
-                  placeholder="email@example.com or 08012345678"
+                  // placeholder="email@example.com or 08012345678"
+                  placeholder="email@example.com"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   className="pl-10 h-11 border-gray-200 focus:border-purple-600 focus:ring-purple-600"

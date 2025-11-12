@@ -1,5 +1,11 @@
 import { useState, useEffect } from "react";
-import { Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
+import {
+  Routes,
+  Route,
+  Navigate,
+  useNavigate,
+  useLocation,
+} from "react-router-dom";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { Dashboard } from "./components/Dashboard";
 import { LoanSection } from "./components/LoanSection";
@@ -23,7 +29,10 @@ import { SMSVerification } from "./components/SMSVerification";
 import { SessionTimeoutHandler } from "./components/SessionTimeoutHandler";
 import { PWAUpdatePrompt } from "./components/PWAUpdatePrompt";
 import { OfflineIndicator } from "./components/OfflineIndicator";
-import { OnboardingTutorial, useOnboarding } from "./components/OnboardingTutorial";
+import {
+  OnboardingTutorial,
+  useOnboarding,
+} from "./components/OnboardingTutorial";
 import { SplashScreen } from "./components/SplashScreen";
 import { BrandLogoCompact } from "./components/BrandLogo";
 import { AdminDashboard } from "./components/admin/AdminDashboard";
@@ -47,12 +56,43 @@ import { toast } from "sonner@2.0.3";
 import { Toaster } from "./components/ui/sonner";
 import { Button } from "./components/ui/button";
 import { Alert, AlertDescription } from "./components/ui/alert";
-import { Home, DollarSign, Wallet, History, User, Settings, LayoutDashboard, UserCheck, FileCheck, Activity, Database, LogOut, Building2, Menu, X, Clock, XCircle, Users, RefreshCw, Edit, TrendingDown, BarChart3, FileText, HandCoins, MessageCircle, Headphones, Receipt, AlertTriangle } from "lucide-react";
+import {
+  Home,
+  DollarSign,
+  Wallet,
+  History,
+  User,
+  Settings,
+  LayoutDashboard,
+  UserCheck,
+  FileCheck,
+  Activity,
+  Database,
+  LogOut,
+  Building2,
+  Menu,
+  X,
+  Clock,
+  XCircle,
+  Users,
+  RefreshCw,
+  Edit,
+  TrendingDown,
+  BarChart3,
+  FileText,
+  HandCoins,
+  MessageCircle,
+  Headphones,
+  Receipt,
+  AlertTriangle,
+} from "lucide-react";
+import { UserData } from "lib/userData";
+import { clearStorage } from "./lib/utils";
 
 export default function App() {
   const navigate = useNavigate();
   const location = useLocation();
-  
+
   const [showSplash, setShowSplash] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [userEmail, setUserEmail] = useState("");
@@ -63,21 +103,25 @@ export default function App() {
   const [activeTab, setActiveTab] = useState("dashboard");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [kycStatus, setKycStatus] = useState<"not_submitted" | "pending" | "approved" | "rejected">("not_submitted");
-  
+  const [kycStatus, setKycStatus] = useState<
+    "not_submitted" | "pending" | "approved" | "rejected"
+  >("not_submitted");
+
   // Onboarding hook
-  const { shouldShowOnboarding, setShouldShowOnboarding } = useOnboarding(isAdmin);
+  const { shouldShowOnboarding, setShouldShowOnboarding } =
+    useOnboarding(isAdmin);
 
   // Helper function to check if KYC is completed
   const isKycCompleted = () => {
     if (isAdmin) return true;
-    
-    const users = JSON.parse(localStorage.getItem("users") || "[]");
-    const user = users.find((u: any) => 
-      u.email === userEmail || u.phoneNumber === userEmail
-    );
-    
-    return user?.kyc === true;
+
+    // const users = JSON.parse(localStorage.getItem("users") || "[]");
+    const userData = JSON.parse(localStorage.getItem("userData") || "null");
+    // const user = users.find((u: any) =>
+    //   u.email === userEmail || u.phoneNumber === userEmail
+    // );
+
+    return userData?.kyc === true;
   };
 
   // Check authentication status from localStorage on mount
@@ -109,45 +153,46 @@ export default function App() {
   useEffect(() => {
     // Initialize contribution balance if it doesn't exist
     if (!localStorage.getItem("contributionBalance")) {
-      const totalContributions = localStorage.getItem("totalContributions") || "3200.00";
+      const totalContributions =
+        localStorage.getItem("totalContributions") || "3200.00";
       localStorage.setItem("contributionBalance", totalContributions);
     }
-    
+
     // Initialize loan deposits if it doesn't exist
     if (!localStorage.getItem("loanDeposits")) {
       localStorage.setItem("loanDeposits", "0");
     }
-    
+
     // Initialize upfront refund requests if it doesn't exist
     if (!localStorage.getItem("upfrontRefundRequests")) {
       localStorage.setItem("upfrontRefundRequests", "[]");
     }
-    
+
     // Initialize deposit offset requests if it doesn't exist
     if (!localStorage.getItem("depositOffsetRequests")) {
       localStorage.setItem("depositOffsetRequests", "[]");
     }
-    
+
     // Initialize company balance if it doesn't exist
     if (!localStorage.getItem("companyBalance")) {
       localStorage.setItem("companyBalance", "0");
     }
-    
+
     // Initialize insurance balance if it doesn't exist
     if (!localStorage.getItem("insuranceBalance")) {
       localStorage.setItem("insuranceBalance", "0");
     }
-    
+
     // Initialize loan interest balance if it doesn't exist
     if (!localStorage.getItem("loanInterestBalance")) {
       localStorage.setItem("loanInterestBalance", "0");
     }
-    
+
     // Initialize loan service charge balance if it doesn't exist
     if (!localStorage.getItem("loanServiceChargeBalance")) {
       localStorage.setItem("loanServiceChargeBalance", "0");
     }
-    
+
     // Initialize loan interest breakdown by type
     if (!localStorage.getItem("loanInterest_sme")) {
       localStorage.setItem("loanInterest_sme", "0");
@@ -158,21 +203,21 @@ export default function App() {
     if (!localStorage.getItem("loanInterest_jumbo")) {
       localStorage.setItem("loanInterest_jumbo", "0");
     }
-    
+
     // Initialize interest transactions history
     if (!localStorage.getItem("interestTransactions")) {
       localStorage.setItem("interestTransactions", "[]");
     }
-    
+
     checkKycStatus();
-    
+
     // Listen for navigation events from child components
     const handleNavigate = (event: any) => {
       if (event.detail) {
         setActiveTab(event.detail);
       }
     };
-    
+
     window.addEventListener("navigate", handleNavigate);
     return () => window.removeEventListener("navigate", handleNavigate);
   }, [isAdmin]);
@@ -183,36 +228,37 @@ export default function App() {
 
     // Check KYC status from user data first
     const users = JSON.parse(localStorage.getItem("users") || "[]");
-    const user = users.find((u: any) => 
-      u.email === userEmail || u.phoneNumber === userEmail
+    const userData = JSON.parse(localStorage.getItem("userData") || "[]");
+    const user = users.find(
+      (u: any) => u.email === userEmail || u.phoneNumber === userEmail
     );
 
-    if (user) {
+    if (userData) {
       // Check if user has kycCompleted flag
-      if (!user.kyc) {
+      if (!userData.kyc) {
         setKycStatus("not_submitted");
         return;
       }
 
       // Check kycStatus from user data
-      if (user.kyc) {
-        setKycStatus(user.kyc);
+      if (userData.kyc) {
+        setKycStatus(userData.kyc);
         return;
       }
 
       // Fallback: Check from kycSubmissions
-      const submissions = JSON.parse(localStorage.getItem("kycSubmissions") || "[]");
-      const userSubmission = submissions.find((s: any) => 
-        s.phone === user.phoneNumber || 
-        s.phone === user.phone || 
-        s.email === user.email
+      const submissions = JSON.parse(
+        localStorage.getItem("kycSubmissions") || "[]"
+      );
+      const userSubmission = submissions.find(
+        (s: any) => s.phone === userData.phone || s.email === userData.email
       );
 
       if (userSubmission) {
         setKycStatus(userSubmission.status);
         // Update user data with status
-        const userIndex = users.findIndex((u: any) => 
-          u.email === userEmail || u.phoneNumber === userEmail
+        const userIndex = users.findIndex(
+          (u: any) => u.email === userEmail || u.phoneNumber === userEmail
         );
         if (userIndex !== -1) {
           users[userIndex].kyc = userSubmission.status;
@@ -223,7 +269,9 @@ export default function App() {
       }
     } else {
       // No user found, check from submissions
-      const submissions = JSON.parse(localStorage.getItem("kycSubmissions") || "[]");
+      const submissions = JSON.parse(
+        localStorage.getItem("kycSubmissions") || "[]"
+      );
       if (submissions.length > 0) {
         const latestSubmission = submissions[submissions.length - 1];
         setKycStatus(latestSubmission.status);
@@ -235,34 +283,38 @@ export default function App() {
 
   const handleRegistrationComplete = () => {
     setKycStatus("pending");
-    
+
     // Update user data with KYC completion
     const users = JSON.parse(localStorage.getItem("users") || "[]");
-    const userIndex = users.findIndex((u: any) => 
-      u.email === userEmail || u.phoneNumber === userEmail
+    const userIndex = users.findIndex(
+      (u: any) => u.email === userEmail || u.phoneNumber === userEmail
     );
-    
+
     if (userIndex !== -1) {
       users[userIndex] = {
         ...users[userIndex],
-        kyc: true
+        kyc: true,
       };
       localStorage.setItem("users", JSON.stringify(users));
     }
 
     // Also update registeredUsers
-    const registeredUsers = JSON.parse(localStorage.getItem("registeredUsers") || "[]");
-    const registeredUserIndex = registeredUsers.findIndex((u: any) => 
-      u.email === userEmail || u.phoneNumber === userEmail
+    const registeredUsers = JSON.parse(
+      localStorage.getItem("registeredUsers") || "[]"
     );
-    
+    const registeredUserIndex = registeredUsers.findIndex(
+      (u: any) => u.email === userEmail || u.phoneNumber === userEmail
+    );
+
     if (registeredUserIndex !== -1) {
       registeredUsers[registeredUserIndex] = {
         ...registeredUsers[registeredUserIndex],
-        kyc: true
+        kyc: true,
       };
       localStorage.setItem("registeredUsers", JSON.stringify(registeredUsers));
     }
+    // Navigate to dashboard after KYC completion
+    navigate("/");
   };
 
   const renderUserContent = () => {
@@ -278,7 +330,13 @@ export default function App() {
       case "support":
         return <CustomerService userEmail={userEmail} />;
       case "profile":
-        return <Profile onNavigate={setActiveTab} userEmail={userEmail} onEmailChange={setUserEmail} />;
+        return (
+          <Profile
+            onNavigate={setActiveTab}
+            userEmail={userEmail}
+            onEmailChange={setUserEmail}
+          />
+        );
       case "payments":
         return <PaymentMethods />;
       default:
@@ -313,7 +371,12 @@ export default function App() {
       case "data-management":
         return <DataManagement />;
       case "company-settings":
-        return <CompanySettings adminEmail={userEmail} onEmailChange={setUserEmail} />;
+        return (
+          <CompanySettings
+            adminEmail={userEmail}
+            onEmailChange={setUserEmail}
+          />
+        );
       case "revenue-analytics":
         return <RevenueAnalytics onNavigate={setActiveTab} />;
       case "reports":
@@ -349,41 +412,47 @@ export default function App() {
     { id: "customer-approvals", label: "KYC Approvals", icon: UserCheck },
     { id: "customer-profiles", label: "Customers", icon: Users },
     { id: "customer-management", label: "Manage Customers", icon: Edit },
-    { id: "customer-enquiries", label: "Customer Enquiries", icon: MessageCircle },
+    {
+      id: "customer-enquiries",
+      label: "Customer Enquiries",
+      icon: MessageCircle,
+    },
     { id: "activity", label: "Activity", icon: Activity },
     { id: "data-management", label: "Data", icon: Database },
     { id: "company-settings", label: "Settings", icon: Building2 },
   ];
 
-  const handleUserLogin = (emailOrPhone: string) => {
+  const handleUserLogin = (userData: UserData) => {
     // Check if phone number is verified
     const users = JSON.parse(localStorage.getItem("users") || "[]");
-    const user = users.find((u: any) => 
-      u.phoneNumber === emailOrPhone || u.email === emailOrPhone
+    // const userData = JSON.parse(localStorage.getItem("userData") || "");
+    const user = users.find(
+      (u: any) =>
+        u.phoneNumber === userData?.phone || u.email === userData?.email
     );
-    
-    if (user && !user.phoneVerified) {
+
+    if (user && !userData.phoneVerified) {
       // Navigate to phone verification
-      setPendingVerificationPhone(user.phoneNumber);
+      setPendingVerificationPhone(userData.phone);
       navigate("/verify-phone");
       return;
     }
-
-    // Check if KYC is completed
-    if (user && !user.kycCompleted) {
-      // User needs to complete KYC before accessing dashboard
-      setUserEmail(user ? (user.email || user.phoneNumber) : emailOrPhone);
-      setIsAuthenticated(true);
-      setIsAdmin(false);
-      setKycStatus("not_submitted");
-      navigate("/"); // Will show KYC form
-      return;
-    }
-
-    setUserEmail(user ? (user.email || user.phoneNumber) : emailOrPhone);
+    setUserEmail(user ? user.email || user.phoneNumber : "");
     setIsAuthenticated(true);
     setIsAdmin(false);
     checkKycStatus();
+
+    // Check if KYC is completed
+    if (user && !userData.kyc) {
+      // User needs to complete KYC before accessing dashboard
+      setUserEmail(user ? userData.email || userData.phone : "");
+      setIsAuthenticated(true);
+      setIsAdmin(false);
+      setKycStatus("not_submitted");
+      navigate("/kycRegistration"); // Will show KYC form
+      return;
+    }
+    // User is fully verified, go to dashboard
     navigate("/");
   };
 
@@ -409,15 +478,9 @@ export default function App() {
     setActiveTab("dashboard");
     setKycStatus("not_submitted");
     setShouldShowOnboarding(false);
-    // Clear auth data
-    localStorage.removeItem("authToken");
-    localStorage.removeItem("currentAdminRole");
-    localStorage.removeItem("currentAdminEmail");
-    localStorage.removeItem("currentAdminPermissions");
+    clearStorage();
     navigate("/login");
   };
-
-
 
   const handleSplashComplete = () => {
     setShowSplash(false);
@@ -426,20 +489,25 @@ export default function App() {
 
   const handleVerificationComplete = () => {
     const users = JSON.parse(localStorage.getItem("users") || "[]");
-    const user = users.find((u: any) => u.phoneNumber === pendingVerificationPhone);
-    setUserEmail(user ? (user.email || user.phoneNumber) : pendingVerificationPhone);
+    const user = users.find(
+      (u: any) => u.phoneNumber === pendingVerificationPhone
+    );
+    setUserEmail(
+      user ? user.email || user.phoneNumber : pendingVerificationPhone
+    );
     setIsAuthenticated(true);
     setIsAdmin(false);
     setPendingVerificationPhone("");
-    
+
     // Check KYC status - if not completed, show KYC form
-    if (user && !user?.kyc) {
+    const userData = JSON.parse(localStorage.getItem("userData") || "null");
+    if (!userData?.kyc) {
       setKycStatus("not_submitted");
+      navigate("/kycRegistration");
     } else {
       checkKycStatus();
+      navigate("/");
     }
-    
-    navigate("/");
   };
 
   // Show splash screen first
@@ -452,111 +520,174 @@ export default function App() {
     <>
       <Routes>
         {/* Public Routes */}
-        <Route path="/login" element={
-          !isAuthenticated ? (
-            <Login 
-              onLogin={handleUserLogin}
-              onAdminLogin={handleAdminLogin}
-              onSwitchToSignUp={() => navigate("/signup")}
-              onForgotPassword={() => navigate("/forgot-password")}
-            />
-          ) : (
-            <Navigate to="/" replace />
-          )
-        } />
-        
-        <Route path="/signup" element={
-          !isAuthenticated ? (
-            <SignUp
-              onSignUp={handleSignUp}
-              onSwitchToLogin={() => navigate("/login")}
-            />
-          ) : (
-            <Navigate to="/" replace />
-          )
-        } />
-
-        <Route path="/forgot-password" element={
-          !isAuthenticated ? (
-            <ForgotPassword
-              onBack={() => navigate("/login")}
-              onResetRequested={(email, token) => {
-                setResetEmail(email);
-                setResetToken(token);
-                navigate(`/reset-password?email=${encodeURIComponent(email)}&token=${token}`);
-              }}
-            />
-          ) : (
-            <Navigate to="/" replace />
-          )
-        } />
-
-        <Route path="/reset-password" element={
-          !isAuthenticated ? (
-            <ResetPasswordRoute />
-          ) : (
-            <Navigate to="/" replace />
-          )
-        } />
-
-        <Route path="/verify-phone" element={
-          pendingVerificationPhone ? (
-            <SMSVerification
-              phoneNumber={pendingVerificationPhone}
-              onVerificationComplete={handleVerificationComplete}
-              onResendSMS={() => {}}
-              onLogout={() => {
-                setPendingVerificationPhone("");
-                navigate("/login");
-              }}
-            />
-          ) : (
-            <Navigate to="/login" replace />
-          )
-        } />
-
-        <Route path="/admin/login" element={
-          !isAuthenticated ? (
-            <AdminLogin 
-              onLogin={handleAdminLogin}
-              onBack={() => navigate("/login")}
-            />
-          ) : (
-            <Navigate to="/admin" replace />
-          )
-        } />
-
-        <Route path="/terms" element={<TermsOfService onBack={() => navigate(-1)} />} />
-        <Route path="/privacy" element={<PrivacyPolicy onBack={() => navigate(-1)} />} />
-        <Route path="/about" element={<AboutUs onBack={() => navigate(-1)} />} />
-        <Route path="/contact" element={<ContactPage onBack={() => navigate(-1)} />} />
-
-        {/* Protected Routes */}
-        <Route path="/" element={
-          <ProtectedRoute isAuthenticated={isAuthenticated}>
-            {!isAdmin && (kycStatus === "not_submitted" || !isKycCompleted()) ? (
-              <KYCRegistration 
-                onRegistrationComplete={handleRegistrationComplete}
-                userEmail={userEmail}
+        <Route
+          path="/login"
+          element={
+            !isAuthenticated ? (
+              <Login
+                onLogin={handleUserLogin}
+                onAdminLogin={handleAdminLogin}
+                onSwitchToSignUp={() => navigate("/signup")}
+                onForgotPassword={() => navigate("/forgot-password")}
               />
             ) : (
-              <DashboardContent />
-            )}
-          </ProtectedRoute>
-        } />
+              <Navigate to="/" replace />
+            )
+          }
+        />
 
-        <Route path="/admin" element={
-          <ProtectedRoute isAuthenticated={isAuthenticated} redirectTo="/admin/login">
-            {isAdmin ? (
-              <AdminDashboardContent />
+        <Route
+          path="/signup"
+          element={
+            !isAuthenticated ? (
+              <SignUp
+                onSignUp={handleSignUp}
+                onSwitchToLogin={() => navigate("/login")}
+              />
             ) : (
               <Navigate to="/" replace />
-            )}
-          </ProtectedRoute>
-        } />
+            )
+          }
+        />
+
+        <Route
+          path="/forgot-password"
+          element={
+            !isAuthenticated ? (
+              <ForgotPassword
+                onBack={() => navigate("/login")}
+                onResetRequested={(email, token) => {
+                  setResetEmail(email);
+                  setResetToken(token);
+                  navigate(
+                    `/reset-password?email=${encodeURIComponent(
+                      email
+                    )}&token=${token}`
+                  );
+                }}
+              />
+            ) : (
+              <Navigate to="/" replace />
+            )
+          }
+        />
+
+        <Route
+          path="/reset-password"
+          element={
+            !isAuthenticated ? (
+              <ResetPasswordRoute />
+            ) : (
+              <Navigate to="/" replace />
+            )
+          }
+        />
+
+        <Route
+          path="/verify-phone"
+          element={
+            pendingVerificationPhone ? (
+              <SMSVerification
+                phoneNumber={pendingVerificationPhone}
+                onVerificationComplete={handleVerificationComplete}
+                onResendSMS={() => {}}
+                onLogout={() => {
+                  setPendingVerificationPhone("");
+                  navigate("/login");
+                }}
+              />
+            ) : (
+              <Navigate to="/login" replace />
+            )
+          }
+        />
+
+        <Route
+          path="/admin/login"
+          element={
+            !isAuthenticated ? (
+              <AdminLogin
+                onLogin={handleAdminLogin}
+                onBack={() => navigate("/login")}
+              />
+            ) : (
+              <Navigate to="/admin" replace />
+            )
+          }
+        />
+
+        <Route
+          path="/terms"
+          element={<TermsOfService onBack={() => navigate(-1)} />}
+        />
+        <Route
+          path="/privacy"
+          element={<PrivacyPolicy onBack={() => navigate(-1)} />}
+        />
+        <Route
+          path="/about"
+          element={<AboutUs onBack={() => navigate(-1)} />}
+        />
+        <Route
+          path="/contact"
+          element={<ContactPage onBack={() => navigate(-1)} />}
+        />
+
+        {/* Protected Routes */}
+        {/* KYC Registration Route - Protected but separate */}
+        <Route
+          path="/kycRegistration"
+          element={
+            <ProtectedRoute isAuthenticated={isAuthenticated}>
+              {!isAdmin && !isKycCompleted() ? (
+                <KYCRegistration
+                  onRegistrationComplete={handleRegistrationComplete}
+                  userEmail={userEmail}
+                />
+              ) : (
+                <Navigate to="/" replace />
+                // <DashboardContent />
+              )}
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Main Dashboard Route - Protected */}
+        <Route
+          path="/"
+          element={
+            <ProtectedRoute isAuthenticated={isAuthenticated}>
+              {!isAdmin && !isKycCompleted() ? (
+                <Navigate to="/kycRegistration" replace />
+              ) : (
+                <DashboardContent />
+              )}
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Admin Route - Protected */}
+        <Route
+          path="/admin"
+          element={
+            <ProtectedRoute
+              isAuthenticated={isAuthenticated}
+              redirectTo="/admin/login"
+            >
+              {isAdmin ? (
+                <AdminDashboardContent />
+              ) : (
+                <Navigate to="/" replace />
+              )}
+            </ProtectedRoute>
+          }
+        />
 
         {/* Catch all - redirect to login */}
-        <Route path="*" element={<Navigate to={isAuthenticated ? "/" : "/login"} replace />} />
+        <Route
+          path="*"
+          element={<Navigate to={isAuthenticated ? "/" : "/login"} replace />}
+        />
       </Routes>
       <Toaster />
     </>
@@ -568,223 +699,194 @@ export default function App() {
     const showKYCRejectedBanner = !isAdmin && kycStatus === "rejected";
 
     return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Session Timeout Handler */}
-      <SessionTimeoutHandler
-        isAuthenticated={isAuthenticated}
-        onLogout={handleLogout}
-        timeoutMinutes={30}
-        warningMinutes={5}
-      />
-
-      {/* PWA Update Prompt */}
-      <PWAUpdatePrompt />
-
-      {/* Offline Indicator */}
-      <OfflineIndicator />
-
-      {/* Onboarding Tutorial */}
-      {isAuthenticated && shouldShowOnboarding && (
-        <OnboardingTutorial
-          isAdmin={isAdmin}
-          onComplete={() => setShouldShowOnboarding(false)}
-          onSkip={() => setShouldShowOnboarding(false)}
+      <div className="min-h-screen bg-gray-50">
+        {/* Session Timeout Handler */}
+        <SessionTimeoutHandler
+          isAuthenticated={isAuthenticated}
+          onLogout={handleLogout}
+          timeoutMinutes={30}
+          warningMinutes={5}
         />
-      )}
 
-      {/* Header */}
-      <header className="bg-white border-b sticky top-0 z-30 shadow-sm">
-        <div className={`${isAdmin ? 'max-w-7xl' : 'max-w-md'} mx-auto px-3 sm:px-4 lg:px-6`}>
-          <div className="flex items-center justify-between h-14 sm:h-16 gap-2 sm:gap-3">
-            {/* Left Section */}
-            <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
-              {/* Mobile Menu Button (Admin Only) */}
-              {isAdmin && (
-                <button
-                  onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                  className="lg:hidden p-1.5 sm:p-2 hover:bg-gray-100 rounded-lg flex-shrink-0"
-                  aria-label="Toggle menu"
-                >
-                  <Menu className="h-5 w-5 text-gray-700" />
-                </button>
-              )}
-              
-              {/* Brand Logo */}
-              <div className="flex-shrink-0">
-                <BrandLogoCompact />
-              </div>
-              
-              {/* Admin Badge */}
-              {isAdmin && (
-                <span className="hidden xs:inline-flex items-center px-2 py-1 rounded-md bg-orange-100 text-orange-700 text-xs flex-shrink-0">
-                  Admin
-                </span>
-              )}
-              
-              {/* User Email - Desktop Only */}
-              {!isAdmin && (
-                <div className="hidden md:block min-w-0 flex-1">
-                  <p className="text-xs text-gray-600 truncate max-w-[200px]">{userEmail}</p>
-                </div>
-              )}
-              {isAdmin && (
-                <div className="hidden lg:block min-w-0 flex-1">
-                  <p className="text-xs text-gray-600 truncate max-w-[180px] xl:max-w-[250px]">{userEmail}</p>
-                </div>
-              )}
-            </div>
-            
-            {/* Right Section */}
-            <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
-              {/* Logout Button - Desktop & Tablet */}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleLogout}
-                className="hidden sm:flex items-center h-9 px-3"
-              >
-                <LogOut className="h-4 w-4 mr-2" />
-                <span className="text-sm">Logout</span>
-              </Button>
-              
-              {/* Logout Button - Mobile */}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleLogout}
-                className="flex sm:hidden items-center h-9 px-2.5"
-                title="Logout"
-              >
-                <LogOut className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-        </div>
-      </header>
+        {/* PWA Update Prompt */}
+        <PWAUpdatePrompt />
 
-      {/* KYC Status Banners */}
-      {showKYCPendingBanner && (
-        <div className="max-w-md mx-auto px-4 sm:px-6 pt-4 sm:pt-6">
-          <Alert className="bg-orange-50 border-orange-200">
-            <Clock className="h-4 w-4 text-orange-600" />
-            <AlertDescription className="text-orange-800 text-xs sm:text-sm">
-              Your KYC application is under review. You'll be notified once it's approved. Limited access until approval.
-            </AlertDescription>
-          </Alert>
-        </div>
-      )}
+        {/* Offline Indicator */}
+        <OfflineIndicator />
 
-      {showKYCRejectedBanner && (
-        <div className="max-w-md mx-auto px-4 sm:px-6 pt-4 sm:pt-6">
-          <Alert className="bg-red-50 border-red-200">
-            <XCircle className="h-4 w-4 text-red-600" />
-            <AlertDescription className="text-red-800 text-xs sm:text-sm">
-              Your KYC application was rejected. Please contact support for assistance or resubmit your application.
-            </AlertDescription>
-          </Alert>
-        </div>
-      )}
+        {/* Onboarding Tutorial */}
+        {isAuthenticated && shouldShowOnboarding && (
+          <OnboardingTutorial
+            isAdmin={isAdmin}
+            onComplete={() => setShouldShowOnboarding(false)}
+            onSkip={() => setShouldShowOnboarding(false)}
+          />
+        )}
 
-      {/* Main Content */}
-      <main 
-        className={`mx-auto px-4 sm:px-6 py-4 sm:py-6 transition-all duration-300 ${
-          isAdmin 
-            ? sidebarCollapsed 
-              ? "lg:ml-16 max-w-7xl" 
-              : "lg:ml-64 max-w-7xl"
-            : "max-w-md pb-20"
-        }`}
-      >
-        {isAdmin ? renderAdminContent() : renderUserContent()}
-      </main>
-
-      {/* Bottom Navigation - Only for User Mode */}
-      {!isAdmin && (
-        <nav className="fixed bottom-0 left-0 right-0 bg-white border-t">
-          <div className="max-w-md mx-auto">
-            <div className="flex justify-around">
-              {userNavItems.map((item) => {
-                const Icon = item.icon;
-                const isActive = activeTab === item.id;
-                return (
+        {/* Header */}
+        <header className="bg-white border-b sticky top-0 z-30 shadow-sm">
+          <div
+            className={`${
+              isAdmin ? "max-w-7xl" : "max-w-md"
+            } mx-auto px-3 sm:px-4 lg:px-6`}
+          >
+            <div className="flex items-center justify-between h-14 sm:h-16 gap-2 sm:gap-3">
+              {/* Left Section */}
+              <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+                {/* Mobile Menu Button (Admin Only) */}
+                {isAdmin && (
                   <button
-                    key={item.id}
-                    onClick={() => setActiveTab(item.id)}
-                    className={`flex flex-col items-center gap-1 py-3 px-4 transition-colors ${
-                      isActive
-                        ? "text-blue-600"
-                        : "text-gray-600 hover:text-gray-900"
-                    }`}
+                    onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                    className="lg:hidden p-1.5 sm:p-2 hover:bg-gray-100 rounded-lg flex-shrink-0"
+                    aria-label="Toggle menu"
                   >
-                    <Icon className="h-5 w-5" />
-                    <span className="text-xs">{item.label}</span>
+                    <Menu className="h-5 w-5 text-gray-700" />
                   </button>
-                );
-              })}
+                )}
+
+                {/* Brand Logo */}
+                <div className="flex-shrink-0">
+                  <BrandLogoCompact />
+                </div>
+
+                {/* Admin Badge */}
+                {isAdmin && (
+                  <span className="hidden xs:inline-flex items-center px-2 py-1 rounded-md bg-orange-100 text-orange-700 text-xs flex-shrink-0">
+                    Admin
+                  </span>
+                )}
+
+                {/* User Email - Desktop Only */}
+                {!isAdmin && (
+                  <div className="hidden md:block min-w-0 flex-1">
+                    <p className="text-xs text-gray-600 truncate max-w-[200px]">
+                      {userEmail}
+                    </p>
+                  </div>
+                )}
+                {isAdmin && (
+                  <div className="hidden lg:block min-w-0 flex-1">
+                    <p className="text-xs text-gray-600 truncate max-w-[180px] xl:max-w-[250px]">
+                      {userEmail}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Right Section */}
+              <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+                {/* Logout Button - Desktop & Tablet */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleLogout}
+                  className="hidden sm:flex items-center h-9 px-3"
+                >
+                  <LogOut className="h-4 w-4 mr-2" />
+                  <span className="text-sm">Logout</span>
+                </Button>
+
+                {/* Logout Button - Mobile */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleLogout}
+                  className="flex sm:hidden items-center h-9 px-2.5"
+                  title="Logout"
+                >
+                  <LogOut className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
           </div>
-        </nav>
-      )}
+        </header>
 
-      {/* Admin Sidebar - Desktop */}
-      {isAdmin && (
-        <aside 
-          className={`hidden lg:block fixed left-0 top-0 bottom-0 bg-white border-r pt-16 sm:pt-20 overflow-y-auto transition-all duration-300 z-20 ${
-            sidebarCollapsed ? "w-16" : "w-64"
+        {/* KYC Status Banners */}
+        {showKYCPendingBanner && (
+          <div className="max-w-md mx-auto px-4 sm:px-6 pt-4 sm:pt-6">
+            <Alert className="bg-orange-50 border-orange-200">
+              <Clock className="h-4 w-4 text-orange-600" />
+              <AlertDescription className="text-orange-800 text-xs sm:text-sm">
+                Your KYC application is under review. You'll be notified once
+                it's approved. Limited access until approval.
+              </AlertDescription>
+            </Alert>
+          </div>
+        )}
+
+        {showKYCRejectedBanner && (
+          <div className="max-w-md mx-auto px-4 sm:px-6 pt-4 sm:pt-6">
+            <Alert className="bg-red-50 border-red-200">
+              <XCircle className="h-4 w-4 text-red-600" />
+              <AlertDescription className="text-red-800 text-xs sm:text-sm">
+                Your KYC application was rejected. Please contact support for
+                assistance or resubmit your application.
+              </AlertDescription>
+            </Alert>
+          </div>
+        )}
+
+        {/* Main Content */}
+        <main
+          className={`mx-auto px-4 sm:px-6 py-4 sm:py-6 transition-all duration-300 ${
+            isAdmin
+              ? sidebarCollapsed
+                ? "lg:ml-16 max-w-7xl"
+                : "lg:ml-64 max-w-7xl"
+              : "max-w-md pb-20"
           }`}
         >
-          {/* Collapse Toggle Button */}
-          <button
-            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-            className="absolute -right-3 top-20 sm:top-24 bg-white border rounded-full p-1.5 shadow-md hover:shadow-lg transition-shadow"
-            title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-          >
-            {sidebarCollapsed ? (
-              <Menu className="h-4 w-4 text-gray-600" />
-            ) : (
-              <X className="h-4 w-4 text-gray-600" />
-            )}
-          </button>
+          {isAdmin ? renderAdminContent() : renderUserContent()}
+        </main>
 
-          <nav className="p-4 space-y-2">
-            {adminNavItems.map((item) => {
-              const Icon = item.icon;
-              const isActive = activeTab === item.id;
-              return (
-                <button
-                  key={item.id}
-                  onClick={() => setActiveTab(item.id)}
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                    isActive
-                      ? "bg-blue-600 text-white"
-                      : "text-gray-700 hover:bg-gray-100"
-                  } ${sidebarCollapsed ? "justify-center" : ""}`}
-                  title={sidebarCollapsed ? item.label : ""}
-                >
-                  <Icon className="h-5 w-5 flex-shrink-0" />
-                  {!sidebarCollapsed && <span className="text-sm">{item.label}</span>}
-                </button>
-              );
-            })}
-          </nav>
-        </aside>
-      )}
-
-      {/* Admin Mobile Menu */}
-      {isAdmin && mobileMenuOpen && (
-        <>
-          {/* Overlay */}
-          <div 
-            className="lg:hidden fixed inset-0 bg-black/50 z-40"
-            onClick={() => setMobileMenuOpen(false)}
-          />
-          
-          {/* Mobile Drawer */}
-          <aside className="lg:hidden fixed left-0 top-0 bottom-0 w-64 bg-white border-r pt-16 overflow-y-auto z-50 shadow-xl">
-            <div className="p-4 border-b">
-              <p className="text-xs text-gray-600 truncate">{userEmail}</p>
+        {/* Bottom Navigation - Only for User Mode */}
+        {!isAdmin && (
+          <nav className="fixed bottom-0 left-0 right-0 bg-white border-t">
+            <div className="max-w-md mx-auto">
+              <div className="flex justify-around">
+                {userNavItems.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = activeTab === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      onClick={() => setActiveTab(item.id)}
+                      className={`flex flex-col items-center gap-1 py-3 px-4 transition-colors ${
+                        isActive
+                          ? "text-blue-600"
+                          : "text-gray-600 hover:text-gray-900"
+                      }`}
+                    >
+                      <Icon className="h-5 w-5" />
+                      <span className="text-xs">{item.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-            
+          </nav>
+        )}
+
+        {/* Admin Sidebar - Desktop */}
+        {isAdmin && (
+          <aside
+            className={`hidden lg:block fixed left-0 top-0 bottom-0 bg-white border-r pt-16 sm:pt-20 overflow-y-auto transition-all duration-300 z-20 ${
+              sidebarCollapsed ? "w-16" : "w-64"
+            }`}
+          >
+            {/* Collapse Toggle Button */}
+            <button
+              onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+              className="absolute -right-3 top-20 sm:top-24 bg-white border rounded-full p-1.5 shadow-md hover:shadow-lg transition-shadow"
+              title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            >
+              {sidebarCollapsed ? (
+                <Menu className="h-4 w-4 text-gray-600" />
+              ) : (
+                <X className="h-4 w-4 text-gray-600" />
+              )}
+            </button>
+
             <nav className="p-4 space-y-2">
               {adminNavItems.map((item) => {
                 const Icon = item.icon;
@@ -792,27 +894,67 @@ export default function App() {
                 return (
                   <button
                     key={item.id}
-                    onClick={() => {
-                      setActiveTab(item.id);
-                      setMobileMenuOpen(false);
-                    }}
+                    onClick={() => setActiveTab(item.id)}
                     className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
                       isActive
                         ? "bg-blue-600 text-white"
                         : "text-gray-700 hover:bg-gray-100"
-                    }`}
+                    } ${sidebarCollapsed ? "justify-center" : ""}`}
+                    title={sidebarCollapsed ? item.label : ""}
                   >
                     <Icon className="h-5 w-5 flex-shrink-0" />
-                    <span className="text-sm">{item.label}</span>
+                    {!sidebarCollapsed && (
+                      <span className="text-sm">{item.label}</span>
+                    )}
                   </button>
                 );
               })}
             </nav>
           </aside>
-        </>
-      )}
+        )}
 
-    </div>
+        {/* Admin Mobile Menu */}
+        {isAdmin && mobileMenuOpen && (
+          <>
+            {/* Overlay */}
+            <div
+              className="lg:hidden fixed inset-0 bg-black/50 z-40"
+              onClick={() => setMobileMenuOpen(false)}
+            />
+
+            {/* Mobile Drawer */}
+            <aside className="lg:hidden fixed left-0 top-0 bottom-0 w-64 bg-white border-r pt-16 overflow-y-auto z-50 shadow-xl">
+              <div className="p-4 border-b">
+                <p className="text-xs text-gray-600 truncate">{userEmail}</p>
+              </div>
+
+              <nav className="p-4 space-y-2">
+                {adminNavItems.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = activeTab === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      onClick={() => {
+                        setActiveTab(item.id);
+                        setMobileMenuOpen(false);
+                      }}
+                      className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+                        isActive
+                          ? "bg-blue-600 text-white"
+                          : "text-gray-700 hover:bg-gray-100"
+                      }`}
+                    >
+                      <Icon className="h-5 w-5 flex-shrink-0" />
+                      <span className="text-sm">{item.label}</span>
+                    </button>
+                  );
+                })}
+              </nav>
+            </aside>
+          </>
+        )}
+      </div>
     );
   }
 
@@ -883,20 +1025,22 @@ export default function App() {
                 >
                   <Menu className="h-5 w-5 text-gray-700" />
                 </button>
-                
+
                 <div className="flex-shrink-0">
                   <BrandLogoCompact />
                 </div>
-                
+
                 <span className="hidden xs:inline-flex items-center px-2 py-1 rounded-md bg-orange-100 text-orange-700 text-xs flex-shrink-0">
                   Admin
                 </span>
-                
+
                 <div className="hidden lg:block min-w-0 flex-1">
-                  <p className="text-xs text-gray-600 truncate max-w-[180px] xl:max-w-[250px]">{userEmail}</p>
+                  <p className="text-xs text-gray-600 truncate max-w-[180px] xl:max-w-[250px]">
+                    {userEmail}
+                  </p>
                 </div>
               </div>
-              
+
               <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
                 <Button
                   variant="outline"
@@ -907,7 +1051,7 @@ export default function App() {
                   <LogOut className="h-4 w-4 mr-2" />
                   <span className="text-sm">Logout</span>
                 </Button>
-                
+
                 <Button
                   variant="outline"
                   size="sm"
@@ -923,18 +1067,16 @@ export default function App() {
         </header>
 
         {/* Main Content */}
-        <main 
+        <main
           className={`mx-auto px-4 sm:px-6 py-4 sm:py-6 transition-all duration-300 ${
-            sidebarCollapsed 
-              ? "lg:ml-16 max-w-7xl" 
-              : "lg:ml-64 max-w-7xl"
+            sidebarCollapsed ? "lg:ml-16 max-w-7xl" : "lg:ml-64 max-w-7xl"
           }`}
         >
           {renderAdminContent()}
         </main>
 
         {/* Admin Sidebar - Desktop */}
-        <aside 
+        <aside
           className={`hidden lg:block fixed left-0 top-0 bottom-0 bg-white border-r pt-16 sm:pt-20 overflow-y-auto transition-all duration-300 z-20 ${
             sidebarCollapsed ? "w-16" : "w-64"
           }`}
@@ -967,7 +1109,9 @@ export default function App() {
                   title={sidebarCollapsed ? item.label : ""}
                 >
                   <Icon className="h-5 w-5 flex-shrink-0" />
-                  {!sidebarCollapsed && <span className="text-sm">{item.label}</span>}
+                  {!sidebarCollapsed && (
+                    <span className="text-sm">{item.label}</span>
+                  )}
                 </button>
               );
             })}
@@ -977,16 +1121,16 @@ export default function App() {
         {/* Admin Mobile Menu */}
         {mobileMenuOpen && (
           <>
-            <div 
+            <div
               className="lg:hidden fixed inset-0 bg-black/50 z-40"
               onClick={() => setMobileMenuOpen(false)}
             />
-            
+
             <aside className="lg:hidden fixed left-0 top-0 bottom-0 w-64 bg-white border-r pt-16 overflow-y-auto z-50 shadow-xl">
               <div className="p-4 border-b">
                 <p className="text-xs text-gray-600 truncate">{userEmail}</p>
               </div>
-              
+
               <nav className="p-4 space-y-2">
                 {adminNavItems.map((item) => {
                   const Icon = item.icon;
