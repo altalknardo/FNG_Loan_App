@@ -3,7 +3,13 @@ import { Card } from "./ui/card";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Alert, AlertDescription } from "./ui/alert";
-import { Smartphone, CheckCircle2, AlertCircle, Clock, RefreshCw } from "lucide-react";
+import {
+  Smartphone,
+  CheckCircle2,
+  AlertCircle,
+  Clock,
+  RefreshCw,
+} from "lucide-react";
 import { BrandLogoCompact } from "./BrandLogo";
 import { toast } from "sonner@2.0.3";
 import { verifyPhone, resendOTP, type ApiError } from "../lib/auth-api";
@@ -15,11 +21,11 @@ interface SMSVerificationProps {
   onLogout: () => void;
 }
 
-export function SMSVerification({ 
-  phoneNumber, 
-  onVerificationComplete, 
+export function SMSVerification({
+  phoneNumber,
+  onVerificationComplete,
   onResendSMS,
-  onLogout 
+  onLogout,
 }: SMSVerificationProps) {
   const [verificationCode, setVerificationCode] = useState("");
   const [isVerifying, setIsVerifying] = useState(false);
@@ -48,15 +54,17 @@ export function SMSVerification({
     const code = generateVerificationCode();
     setGeneratedCode(code);
     console.log("📱 SMS Verification Code (Demo):", code);
-    
+
     // Store verification code in localStorage for fallback
-    const verifications = JSON.parse(localStorage.getItem("smsVerifications") || "[]");
+    const verifications = JSON.parse(
+      localStorage.getItem("smsVerifications") || "[]"
+    );
     verifications.push({
       phoneNumber,
       code,
       createdAt: Date.now(),
       expiresAt: Date.now() + 600000, // 10 minutes
-      verified: false
+      verified: false,
     });
     localStorage.setItem("smsVerifications", JSON.stringify(verifications));
   }, [phoneNumber]);
@@ -89,23 +97,42 @@ export function SMSVerification({
       if (response.success) {
         // Update user as verified in localStorage for backward compatibility
         const users = JSON.parse(localStorage.getItem("users") || "[]");
-        const userIndex = users.findIndex((u: any) => u.phoneNumber === phoneNumber);
+        const userData = JSON.parse(localStorage.getItem("userData") || "null");
+        const userIndex = users.findIndex(
+          (u: any) => u.phoneNumber === phoneNumber
+        );
         if (userIndex !== -1) {
           users[userIndex].phoneVerified = true;
           users[userIndex].verifiedAt = new Date().toISOString();
           localStorage.setItem("users", JSON.stringify(users));
         }
+        localStorage.setItem(
+          "userData",
+          JSON.stringify({
+            ...userData,
+            phoneVerified: true,
+          })
+        );
 
         // Mark verification as complete in localStorage
-        const verifications = JSON.parse(localStorage.getItem("smsVerifications") || "[]");
-        const verification = verifications.find((v: any) => v.phoneNumber === phoneNumber && !v.verified);
+        const verifications = JSON.parse(
+          localStorage.getItem("smsVerifications") || "[]"
+        );
+        const verification = verifications.find(
+          (v: any) => v.phoneNumber === phoneNumber && !v.verified
+        );
         if (verification) {
           verification.verified = true;
           verification.verifiedAt = Date.now();
-          localStorage.setItem("smsVerifications", JSON.stringify(verifications));
+          localStorage.setItem(
+            "smsVerifications",
+            JSON.stringify(verifications)
+          );
         }
 
-        toast.success(response.message || "Phone number verified successfully!");
+        toast.success(
+          response.message || "Phone number verified successfully!"
+        );
         setIsVerifying(false);
         onVerificationComplete();
       } else {
@@ -123,7 +150,9 @@ export function SMSVerification({
         toast.error("Too many failed attempts. Please request a new code.");
         handleResendCode();
       } else {
-        toast.error(apiError.message || "Invalid verification code. Please try again.");
+        toast.error(
+          apiError.message || "Invalid verification code. Please try again."
+        );
       }
     }
   };
@@ -149,21 +178,34 @@ export function SMSVerification({
         console.log("📱 New SMS Verification Code (Demo):", code);
 
         // Update verification record in localStorage for fallback
-        const verifications = JSON.parse(localStorage.getItem("smsVerifications") || "[]");
-        const verification = verifications.find((v: any) => v.phoneNumber === phoneNumber && !v.verified);
-        
+        const verifications = JSON.parse(
+          localStorage.getItem("smsVerifications") || "[]"
+        );
+        const verification = verifications.find(
+          (v: any) => v.phoneNumber === phoneNumber && !v.verified
+        );
+
         if (verification) {
           verification.code = code;
           verification.createdAt = Date.now();
           verification.expiresAt = Date.now() + 600000; // 10 minutes
-          localStorage.setItem("smsVerifications", JSON.stringify(verifications));
+          localStorage.setItem(
+            "smsVerifications",
+            JSON.stringify(verifications)
+          );
         }
 
-        toast.success(response.message || "New verification code sent successfully!");
+        toast.success(
+          response.message || "New verification code sent successfully!"
+        );
         onResendSMS();
       } else {
-        setError(response.message || "Failed to resend code. Please try again.");
-        toast.error(response.message || "Failed to resend code. Please try again.");
+        setError(
+          response.message || "Failed to resend code. Please try again."
+        );
+        toast.error(
+          response.message || "Failed to resend code. Please try again."
+        );
         setResendDisabled(false);
         setCountdown(0);
       }
@@ -171,16 +213,20 @@ export function SMSVerification({
       // Handle API errors - fall back to localStorage method
       const apiError = error as ApiError;
       console.warn("Resend OTP API failed, using fallback:", apiError);
-      
+
       // Fallback: Generate new code locally
       const code = generateVerificationCode();
       setGeneratedCode(code);
       console.log("📱 New SMS Verification Code (Fallback):", code);
 
       // Update verification record
-      const verifications = JSON.parse(localStorage.getItem("smsVerifications") || "[]");
-      const verification = verifications.find((v: any) => v.phoneNumber === phoneNumber && !v.verified);
-      
+      const verifications = JSON.parse(
+        localStorage.getItem("smsVerifications") || "[]"
+      );
+      const verification = verifications.find(
+        (v: any) => v.phoneNumber === phoneNumber && !v.verified
+      );
+
       if (verification) {
         verification.code = code;
         verification.createdAt = Date.now();
@@ -206,7 +252,9 @@ export function SMSVerification({
     // Assuming Nigerian format: +234 XXX XXX XXXX
     if (phone.startsWith("+234")) {
       const digits = phone.slice(4);
-      return `+234 ${digits.slice(0, 3)} ${digits.slice(3, 6)} ${digits.slice(6)}`;
+      return `+234 ${digits.slice(0, 3)} ${digits.slice(3, 6)} ${digits.slice(
+        6
+      )}`;
     }
     return phone;
   };
@@ -216,16 +264,18 @@ export function SMSVerification({
       <Card className="w-full max-w-md p-6 sm:p-8">
         <div className="text-center mb-6">
           <BrandLogoCompact className="mx-auto mb-4" />
-          
+
           <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <Smartphone className="h-8 w-8 text-green-600" />
           </div>
-          
+
           <h2 className="mb-2">Verify Your Phone Number</h2>
           <p className="text-sm text-gray-600">
             We've sent a 6-digit verification code to
           </p>
-          <p className="text-sm text-green-600 mt-1">{formatPhoneNumber(phoneNumber)}</p>
+          <p className="text-sm text-green-600 mt-1">
+            {formatPhoneNumber(phoneNumber)}
+          </p>
         </div>
 
         {/* <Alert className="bg-amber-50 border-amber-300 mb-6">
@@ -301,8 +351,8 @@ export function SMSVerification({
             )}
           </div>
 
-          <Button 
-            onClick={handleVerify} 
+          <Button
+            onClick={handleVerify}
             className="w-full"
             disabled={isVerifying || verificationCode.length !== 6}
           >
@@ -320,9 +370,7 @@ export function SMSVerification({
           </Button>
 
           <div className="text-center space-y-3">
-            <p className="text-xs text-gray-600">
-              Didn't receive the code?
-            </p>
+            <p className="text-xs text-gray-600">Didn't receive the code?</p>
             <Button
               variant="outline"
               size="sm"
@@ -338,10 +386,9 @@ export function SMSVerification({
               ) : (
                 <>
                   <RefreshCw className="h-4 w-4 mr-2" />
-                  {resendDisabled 
-                    ? `Resend Code (${countdown}s)` 
-                    : "Resend Code"
-                  }
+                  {resendDisabled
+                    ? `Resend Code (${countdown}s)`
+                    : "Resend Code"}
                 </>
               )}
             </Button>
@@ -351,7 +398,8 @@ export function SMSVerification({
             <Alert className="bg-orange-50 border-orange-200">
               <AlertCircle className="h-4 w-4 text-orange-600" />
               <AlertDescription className="text-orange-800 text-xs">
-                {5 - attempts} attempt{5 - attempts !== 1 ? 's' : ''} remaining before code reset
+                {5 - attempts} attempt{5 - attempts !== 1 ? "s" : ""} remaining
+                before code reset
               </AlertDescription>
             </Alert>
           )}
@@ -360,7 +408,10 @@ export function SMSVerification({
         <div className="mt-6 pt-6 border-t text-center">
           <p className="text-xs text-gray-600 mb-3">
             Need help? Contact support at{" "}
-            <a href="tel:+2348012345678" className="text-blue-600 hover:underline">
+            <a
+              href="tel:+2348012345678"
+              className="text-blue-600 hover:underline"
+            >
               +234 801 234 5678
             </a>
           </p>

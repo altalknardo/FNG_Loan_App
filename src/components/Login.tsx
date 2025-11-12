@@ -350,7 +350,7 @@ export function Login({
 
           <form onSubmit={handleSubmit} className="space-y-5">
             <div className="space-y-2">
-              <Label htmlFor="username">Email or Phone Number</Label>
+              <Label htmlFor="username">Email</Label>
               <div className="relative group">
                 <InputIcon className="absolute left-3 top-3 h-5 w-5 text-gray-400 group-focus-within:text-purple-600 transition-colors" />
                 <Input

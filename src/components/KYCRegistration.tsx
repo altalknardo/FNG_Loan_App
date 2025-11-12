@@ -536,6 +536,7 @@ export function KYCRegistration({ onRegistrationComplete, userEmail }: Props) {
 
         // ✅ Update user info in localStorage
         const users = JSON.parse(localStorage.getItem("users") || "[]");
+        const userData = JSON.parse(localStorage.getItem("userData") || "[]");
         const registeredUsers = JSON.parse(
           localStorage.getItem("registeredUsers") || "[]"
         );
@@ -554,6 +555,13 @@ export function KYCRegistration({ onRegistrationComplete, userEmail }: Props) {
         }
 
         localStorage.setItem("users", JSON.stringify(users));
+        localStorage.setItem(
+          "userData",
+          JSON.stringify({
+            ...userData,
+            kyc: true,
+          })
+        );
 
         // ✅ Sync with registered users
         const regIndex = registeredUsers.findIndex(
