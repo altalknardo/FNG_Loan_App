@@ -293,7 +293,7 @@ export const login = async (
   }
 };
 
-export const updateKYC = async (kycData: KycRequest): Promise<KycResponse> => {
+export const updateKYC = async (kycData: FormData): Promise<KycResponse> => {
   try {
     const response = await api.post<KycResponse>("user/update-kyc", kycData);
     return response.data;
