@@ -286,6 +286,7 @@ export default function App() {
 
     // Update user data with KYC completion
     const users = JSON.parse(localStorage.getItem("users") || "[]");
+    const userData = JSON.parse(localStorage.getItem("userData") || "[]");
     const userIndex = users.findIndex(
       (u: any) => u.email === userEmail || u.phoneNumber === userEmail
     );
@@ -296,6 +297,13 @@ export default function App() {
         kyc: true,
       };
       localStorage.setItem("users", JSON.stringify(users));
+      localStorage.setItem(
+        "userData",
+        JSON.stringify({
+          ...userData,
+          kyc: true,
+        })
+      );
     }
 
     // Also update registeredUsers

@@ -7,7 +7,21 @@ import { Checkbox } from "./ui/checkbox";
 import { Alert, AlertDescription } from "./ui/alert";
 import { Progress } from "./ui/progress";
 import { BrandLogo } from "./BrandLogo";
-import { User, Lock, Mail, Phone, MapPin, AlertCircle, CheckCircle2, Eye, EyeOff, ArrowRight, ArrowLeft, Sparkles, Smartphone } from "lucide-react";
+import {
+  User,
+  Lock,
+  Mail,
+  Phone,
+  MapPin,
+  AlertCircle,
+  CheckCircle2,
+  Eye,
+  EyeOff,
+  ArrowRight,
+  ArrowLeft,
+  Sparkles,
+  Smartphone,
+} from "lucide-react";
 import { toast } from "sonner@2.0.3";
 import { motion, AnimatePresence } from "motion/react";
 import { useNavigate } from "react-router-dom";
@@ -21,27 +35,27 @@ interface Props {
 export function SignUp({ onSignUp, onSwitchToLogin }: Props) {
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
-  
+
   // Step 1: Basic Info
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
-  
+
   // Step 2: Password
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  
+
   // Step 3: Address
   const [address, setAddress] = useState("");
   const [city, setCity] = useState("");
   const [state, setState] = useState("");
-  
+
   // Step 4: Agreement
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [acceptPrivacy, setAcceptPrivacy] = useState(false);
-  
+
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [checkingPhone, setCheckingPhone] = useState(false);
@@ -54,31 +68,31 @@ export function SignUp({ onSignUp, onSwitchToLogin }: Props) {
   };
 
   const isValidPhone = (str: string) => {
-    return /^(\+?234|0)?[789]\d{9}$/.test(str.replace(/\s/g, ''));
+    return /^(\+?234|0)?[789]\d{9}$/.test(str.replace(/\s/g, ""));
   };
 
   const normalizePhoneNumber = (phone: string | undefined | null): string => {
     // Handle undefined/null/empty values
-    if (!phone) return '';
-    
+    if (!phone) return "";
+
     // Remove all spaces and convert to standard format +234XXXXXXXXXX
-    let cleaned = phone.replace(/\s/g, '');
-    
+    let cleaned = phone.replace(/\s/g, "");
+
     // If starts with 0, replace with +234
-    if (cleaned.startsWith('0')) {
-      cleaned = '+1' + cleaned.slice(1);
+    if (cleaned.startsWith("0")) {
+      cleaned = "+234" + cleaned.slice(1);
     }
-    
+
     // If starts with 234, add +
-    else if (cleaned.startsWith('234')) {
-      cleaned = '+' + cleaned;
+    else if (cleaned.startsWith("234")) {
+      cleaned = "+" + cleaned;
     }
-    
+
     // If doesn't start with +234, assume it's missing
-    else if (!cleaned.startsWith('+1')) {
-      cleaned = '+1' + cleaned;
+    else if (!cleaned.startsWith("+234")) {
+      cleaned = "+234" + cleaned;
     }
-    
+
     return cleaned;
   };
 
@@ -87,7 +101,7 @@ export function SignUp({ onSignUp, onSwitchToLogin }: Props) {
       setError("Please enter your full name");
       return false;
     }
-    if (fullName.trim().split(' ').length < 2) {
+    if (fullName.trim().split(" ").length < 2) {
       setError("Please enter your full name (first and last name)");
       return false;
     }
@@ -99,39 +113,52 @@ export function SignUp({ onSignUp, onSwitchToLogin }: Props) {
       setError("Please enter a valid Nigerian phone number");
       return false;
     }
-    
+
     // Email is optional, but if provided must be valid
     if (email && !isValidEmail(email)) {
       setError("Please enter a valid email address");
       return false;
     }
-    
+
     // Check if phone number already exists via API
     const normalizedPhone = normalizePhoneNumber(phone);
     setCheckingPhone(true);
     try {
       const phoneExists = await checkPhoneExists(normalizedPhone);
       if (phoneExists) {
-        setError("This phone number is already registered. Please login instead.");
+        setError(
+          "This phone number is already registered. Please login instead."
+        );
         setCheckingPhone(false);
         return false;
       }
     } catch (error) {
       // If API check fails, fall back to localStorage check for backward compatibility
-      console.warn("Phone check API failed, using localStorage fallback:", error);
-      const existingUsers = JSON.parse(localStorage.getItem("registeredUsers") || "[]");
-      if (existingUsers.some((u: any) => {
-        const userPhone = u.phoneNumber || u.phone;
-        return userPhone && normalizePhoneNumber(userPhone) === normalizedPhone;
-      })) {
-        setError("This phone number is already registered. Please login instead.");
+      console.warn(
+        "Phone check API failed, using localStorage fallback:",
+        error
+      );
+      const existingUsers = JSON.parse(
+        localStorage.getItem("registeredUsers") || "[]"
+      );
+      if (
+        existingUsers.some((u: any) => {
+          const userPhone = u.phoneNumber || u.phone;
+          return (
+            userPhone && normalizePhoneNumber(userPhone) === normalizedPhone
+          );
+        })
+      ) {
+        setError(
+          "This phone number is already registered. Please login instead."
+        );
         setCheckingPhone(false);
         return false;
       }
     } finally {
       setCheckingPhone(false);
     }
-    
+
     return true;
   };
 
@@ -189,14 +216,14 @@ export function SignUp({ onSignUp, onSwitchToLogin }: Props) {
 
   const handleNext = async () => {
     setError("");
-    
+
     if (step === 1) {
       const isValid = await validateStep1();
       if (!isValid) return;
     }
     if (step === 2 && !validateStep2()) return;
     if (step === 3 && !validateStep3()) return;
-    
+
     if (step < totalSteps) {
       setStep(step + 1);
     }
@@ -219,7 +246,7 @@ export function SignUp({ onSignUp, onSwitchToLogin }: Props) {
 
     try {
       const normalizedPhone = normalizePhoneNumber(phone);
-      
+
       // Prepare signup data
       const signupData = {
         fullName: fullName.trim(),
@@ -236,21 +263,34 @@ export function SignUp({ onSignUp, onSwitchToLogin }: Props) {
 
       if (response.success && response.data) {
         // Store auth token if provided by backend
-        if (response.data.token) {
-          localStorage.setItem("authToken", response.data.token);
+        if (response?.token) {
+          localStorage.setItem(
+            "authToken",
+            response?.token || ""
+          );
         }
 
         // Store user data in localStorage for backward compatibility
         // (Remove this once fully migrated to API)
+        localStorage.setItem(
+          "userData",
+          JSON.stringify({
+            ...response?.data,
+            token: response?.token || response.data.token,
+          })
+        );
         const userData = {
           ...response.data,
           // password, // Note: In production, never store password
           address,
           city,
-          state
+          state,
+          token: response.data.token,
         };
 
-        const existingUsers = JSON.parse(localStorage.getItem("registeredUsers") || "[]");
+        const existingUsers = JSON.parse(
+          localStorage.getItem("registeredUsers") || "[]"
+        );
         existingUsers.push(userData);
         localStorage.setItem("registeredUsers", JSON.stringify(existingUsers));
 
@@ -258,7 +298,10 @@ export function SignUp({ onSignUp, onSwitchToLogin }: Props) {
         users.push(userData);
         localStorage.setItem("users", JSON.stringify(users));
 
-        toast.success(response.message || "Account created successfully! Please verify your phone number.");
+        toast.success(
+          response.message ||
+            "Account created successfully! Please verify your phone number."
+        );
         onSignUp(normalizedPhone, response.data.user);
       } else {
         setError(response.message || "Registration failed. Please try again.");
@@ -267,7 +310,7 @@ export function SignUp({ onSignUp, onSwitchToLogin }: Props) {
     } catch (error: any) {
       // Handle API errors
       const apiError = error as ApiError;
-      
+
       // Check for field-specific errors
       if (apiError.errors && Object.keys(apiError.errors).length > 0) {
         const firstError = Object.values(apiError.errors)[0][0];
@@ -275,7 +318,7 @@ export function SignUp({ onSignUp, onSwitchToLogin }: Props) {
       } else {
         setError(apiError.message || "Registration failed. Please try again.");
       }
-      
+
       setIsLoading(false);
     }
   };
@@ -304,7 +347,12 @@ export function SignUp({ onSignUp, onSwitchToLogin }: Props) {
     return "Strong";
   };
 
-  const stepTitles = ["Basic Information", "Create Password", "Address Details", "Terms & Agreement"];
+  const stepTitles = [
+    "Basic Information",
+    "Create Password",
+    "Address Details",
+    "Terms & Agreement",
+  ];
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-600 via-purple-600 to-indigo-700 flex items-center justify-center px-4 py-8 relative overflow-hidden">
@@ -358,15 +406,25 @@ export function SignUp({ onSignUp, onSwitchToLogin }: Props) {
           {/* Progress Bar */}
           <div className="mb-6">
             <div className="flex justify-between mb-2">
-              <span className="text-sm text-gray-600">Step {step} of {totalSteps}</span>
-              <span className="text-sm text-gray-600">{progress.toFixed(0)}%</span>
+              <span className="text-sm text-gray-600">
+                Step {step} of {totalSteps}
+              </span>
+              <span className="text-sm text-gray-600">
+                {progress.toFixed(0)}%
+              </span>
             </div>
             <Progress value={progress} className="h-2" />
             <div className="flex justify-between mt-2 text-xs text-gray-500">
               <span className={step >= 1 ? "text-purple-600" : ""}>Basic</span>
-              <span className={step >= 2 ? "text-purple-600" : ""}>Password</span>
-              <span className={step >= 3 ? "text-purple-600" : ""}>Address</span>
-              <span className={step >= 4 ? "text-purple-600" : ""}>Confirm</span>
+              <span className={step >= 2 ? "text-purple-600" : ""}>
+                Password
+              </span>
+              <span className={step >= 3 ? "text-purple-600" : ""}>
+                Address
+              </span>
+              <span className={step >= 4 ? "text-purple-600" : ""}>
+                Confirm
+              </span>
             </div>
           </div>
 
@@ -380,7 +438,8 @@ export function SignUp({ onSignUp, onSwitchToLogin }: Props) {
             <Alert className="mb-4 bg-green-50 border-green-300">
               <Smartphone className="h-4 w-4 text-green-600" />
               <AlertDescription className="text-green-900 text-xs">
-                <strong>Phone Verification:</strong> SMS code will be shown on-screen (90% of customers use phone verification)
+                <strong>Phone Verification:</strong> SMS code will be shown
+                on-screen (90% of customers use phone verification)
               </AlertDescription>
             </Alert>
           )}
@@ -425,7 +484,10 @@ export function SignUp({ onSignUp, onSwitchToLogin }: Props) {
                         disabled={isLoading || checkingPhone}
                       />
                     </div>
-                    <p className="text-xs text-gray-500">Your primary identifier (e.g., 08012345678 or +2348012345678)</p>
+                    <p className="text-xs text-gray-500">
+                      Your primary identifier (e.g., 08012345678 or
+                      +2348012345678)
+                    </p>
                   </div>
 
                   <div className="space-y-2">
@@ -442,7 +504,9 @@ export function SignUp({ onSignUp, onSwitchToLogin }: Props) {
                         disabled={isLoading}
                       />
                     </div>
-                    <p className="text-xs text-gray-500">Optional - for account recovery only</p>
+                    <p className="text-xs text-gray-500">
+                      Optional - for account recovery only
+                    </p>
                   </div>
                 </motion.div>
               )}
@@ -475,14 +539,28 @@ export function SignUp({ onSignUp, onSwitchToLogin }: Props) {
                         onClick={() => setShowPassword(!showPassword)}
                         className="absolute right-3 top-3 text-gray-400 hover:text-gray-600"
                       >
-                        {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                        {showPassword ? (
+                          <EyeOff className="h-5 w-5" />
+                        ) : (
+                          <Eye className="h-5 w-5" />
+                        )}
                       </button>
                     </div>
                     {password && (
                       <div className="space-y-1">
                         <div className="flex items-center justify-between text-xs">
-                          <span className="text-gray-600">Password strength:</span>
-                          <span className={`${passwordStrength() < 50 ? 'text-red-600' : passwordStrength() < 75 ? 'text-orange-600' : 'text-green-600'}`}>
+                          <span className="text-gray-600">
+                            Password strength:
+                          </span>
+                          <span
+                            className={`${
+                              passwordStrength() < 50
+                                ? "text-red-600"
+                                : passwordStrength() < 75
+                                ? "text-orange-600"
+                                : "text-green-600"
+                            }`}
+                          >
                             {getPasswordStrengthText()}
                           </span>
                         </div>
@@ -494,7 +572,9 @@ export function SignUp({ onSignUp, onSwitchToLogin }: Props) {
                         </div>
                       </div>
                     )}
-                    <p className="text-xs text-gray-500">At least 6 characters with letters and numbers</p>
+                    <p className="text-xs text-gray-500">
+                      At least 6 characters with letters and numbers
+                    </p>
                   </div>
 
                   <div className="space-y-2">
@@ -512,10 +592,16 @@ export function SignUp({ onSignUp, onSwitchToLogin }: Props) {
                       />
                       <button
                         type="button"
-                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        onClick={() =>
+                          setShowConfirmPassword(!showConfirmPassword)
+                        }
                         className="absolute right-3 top-3 text-gray-400 hover:text-gray-600"
                       >
-                        {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                        {showConfirmPassword ? (
+                          <EyeOff className="h-5 w-5" />
+                        ) : (
+                          <Eye className="h-5 w-5" />
+                        )}
                       </button>
                     </div>
                     {confirmPassword && password === confirmPassword && (
@@ -592,7 +678,9 @@ export function SignUp({ onSignUp, onSwitchToLogin }: Props) {
                   className="space-y-4"
                 >
                   <div className="p-4 bg-gradient-to-br from-blue-50 to-purple-50 rounded-lg border border-blue-100">
-                    <h4 className="text-gray-900 mb-3">Review Your Information</h4>
+                    <h4 className="text-gray-900 mb-3">
+                      Review Your Information
+                    </h4>
                     <div className="space-y-2 text-sm">
                       <div className="flex justify-between">
                         <span className="text-gray-600">Name:</span>
@@ -608,7 +696,9 @@ export function SignUp({ onSignUp, onSwitchToLogin }: Props) {
                       </div>
                       <div className="flex justify-between">
                         <span className="text-gray-600">Address:</span>
-                        <span className="text-gray-900 text-right">{address}, {city}, {state}</span>
+                        <span className="text-gray-900 text-right">
+                          {address}, {city}, {state}
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -618,13 +708,21 @@ export function SignUp({ onSignUp, onSwitchToLogin }: Props) {
                       <Checkbox
                         id="terms"
                         checked={acceptTerms}
-                        onCheckedChange={(checked) => setAcceptTerms(checked as boolean)}
+                        onCheckedChange={(checked) =>
+                          setAcceptTerms(checked as boolean)
+                        }
                         disabled={isLoading}
                         className="mt-1"
                       />
-                      <Label htmlFor="terms" className="text-sm cursor-pointer select-none leading-relaxed">
+                      <Label
+                        htmlFor="terms"
+                        className="text-sm cursor-pointer select-none leading-relaxed"
+                      >
                         I agree to the{" "}
-                        <button type="button" className="text-purple-600 hover:underline">
+                        <button
+                          type="button"
+                          className="text-purple-600 hover:underline"
+                        >
                           Terms and Conditions
                         </button>
                       </Label>
@@ -634,13 +732,21 @@ export function SignUp({ onSignUp, onSwitchToLogin }: Props) {
                       <Checkbox
                         id="privacy"
                         checked={acceptPrivacy}
-                        onCheckedChange={(checked) => setAcceptPrivacy(checked as boolean)}
+                        onCheckedChange={(checked) =>
+                          setAcceptPrivacy(checked as boolean)
+                        }
                         disabled={isLoading}
                         className="mt-1"
                       />
-                      <Label htmlFor="privacy" className="text-sm cursor-pointer select-none leading-relaxed">
+                      <Label
+                        htmlFor="privacy"
+                        className="text-sm cursor-pointer select-none leading-relaxed"
+                      >
                         I agree to the{" "}
-                        <button type="button" className="text-purple-600 hover:underline">
+                        <button
+                          type="button"
+                          className="text-purple-600 hover:underline"
+                        >
                           Privacy Policy
                         </button>
                       </Label>
@@ -673,8 +779,8 @@ export function SignUp({ onSignUp, onSwitchToLogin }: Props) {
                   Back
                 </Button>
               )}
-              
-                  {step < totalSteps ? (
+
+              {step < totalSteps ? (
                 <Button
                   type="button"
                   onClick={handleNext}

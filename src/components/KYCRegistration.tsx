@@ -64,9 +64,9 @@ interface KYCFormData {
   cardType: string;
 
   // Documents (mock file names)
-  idDocument: string;
-  proofOfAddress: string;
-  selfie: string;
+  idDocument: File | string;
+  proofOfAddress: File | string;
+  selfie: File | string;
 }
 
 interface Props {
@@ -358,40 +358,48 @@ export function KYCRegistration({ onRegistrationComplete, userEmail }: Props) {
         return;
       }
 
+      // ✅ Directly store File object in state
+      setFormData((prev) => ({
+        ...prev,
+        [field]: file, // store actual file
+      }));
+
+      toast.success(`${file.name} uploaded successfully`);
+
       // Read file and convert to base64
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const dataUrl = e.target?.result as string;
+      // const reader = new FileReader();
+      // reader.onload = (e) => {
+      //   const dataUrl = e.target?.result as string;
 
-        // Store both file name and data URL
-        const fileData = {
-          name: file.name,
-          type: file.type,
-          size: file.size,
-          dataUrl: dataUrl,
-        };
+      //   // Store both file name and data URL
+      //   const fileData = {
+      //     name: file.name,
+      //     type: file.type,
+      //     size: file.size,
+      //     dataUrl: dataUrl,
+      //   };
 
-        // Store in a separate object for file data
-        const existingFiles = localStorage.getItem("kycFileData");
-        const filesMap = existingFiles ? JSON.parse(existingFiles) : {};
+      //   // Store in a separate object for file data
+      //   const existingFiles = localStorage.getItem("kycFileData");
+      //   const filesMap = existingFiles ? JSON.parse(existingFiles) : {};
 
-        // Use timestamp + field as unique key
-        const fileKey = `${Date.now()}_${field}`;
-        filesMap[fileKey] = fileData;
+      //   // Use timestamp + field as unique key
+      //   const fileKey = `${Date.now()}_${field}`;
+      //   filesMap[fileKey] = fileData;
 
-        localStorage.setItem("kycFileData", JSON.stringify(filesMap));
+      //   localStorage.setItem("kycFileData", JSON.stringify(filesMap));
 
-        // Store the key in form data
-        setFormData((prev) => ({ ...prev, [field]: fileKey }));
+      //   // Store the key in form data
+      //   setFormData((prev) => ({ ...prev, [field]: fileKey }));
 
-        toast.success(`${file.name} uploaded successfully`);
-      };
+      //   toast.success(`${file.name} uploaded successfully`);
+      // };
 
-      reader.onerror = () => {
-        toast.error("Error reading file. Please try again.");
-      };
+      // reader.onerror = () => {
+      //   toast.error("Error reading file. Please try again.");
+      // };
 
-      reader.readAsDataURL(file);
+      // reader.readAsDataURL(file);
     }
   };
 
@@ -504,38 +512,57 @@ export function KYCRegistration({ onRegistrationComplete, userEmail }: Props) {
 
     try {
       setIsSubmitting(true);
+      const formDataObject = new FormData();
+      console.log(formData);
+
+      // Add simple fields
+      formDataObject.append("firstName", formData.firstName || "");
+      formDataObject.append("lastName", formData.lastName || "");
+      formDataObject.append("email", formData.email || "");
+      formDataObject.append("dob", formData.dateOfBirth || "");
+      formDataObject.append("gender", formData.gender || "");
+      formDataObject.append("streetAddress", formData.address || "");
+      formDataObject.append("city", formData.city || "");
+      formDataObject.append("state", formData.state || "");
+      formDataObject.append("idType", formData.idType || "");
+      formDataObject.append("idNumber", formData.idNumber || "");
+      formDataObject.append("bvn", formData.bvn || "");
+      // formDataObject.append("bvn", formData.bvn || "");
+      formDataObject.append("paymentType", formData.paymentType || "");
+      formDataObject.append("bankName", formData.bankName || "");
+      formDataObject.append("accountNumber", formData.accountNumber || "");
+      formDataObject.append("accountName", formData.accountName || "");
+      formDataObject.append("cardNumber", formData.cardNumber || "");
+      formDataObject.append("cardType", formData.cardType || "");
+
+      // For uploaded files or URLs
+      if (formData.idDocument instanceof File) {
+        formDataObject.append("idDocument", formData.idDocument);
+      } else {
+        formDataObject.append("idDocument", formData.idDocument || "");
+      }
+
+      if (formData.proofOfAddress instanceof File) {
+        formDataObject.append("proofOfAddress", formData.proofOfAddress);
+      } else {
+        formDataObject.append("proofOfAddress", formData.proofOfAddress || "");
+      }
+
+      if (formData.selfie instanceof File) {
+        formDataObject.append("selfie", formData.selfie);
+      } else {
+        formDataObject.append("selfie", formData.selfie || "");
+      }
 
       // ✅ Call API to update KYC
-      const response = await updateKYC({
-        idInfo: {
-          idType: formData.idType || "",
-          idNumber: formData.idNumber || "",
-          bvn: formData.bvn || "",
-        },
-        bankInfo: {
-          bankName: formData.bankName || "",
-          accountNumber: formData.accountNumber || "",
-          accountName: formData.accountName || "",
-        },
-        cardInfo: {
-          cardNumber: formData.cardNumber || "",
-          cardType: formData.cardType || "",
-        },
-        dob: formData.dateOfBirth,
-        firstName: formData.firstName,
-        lastName: formData.lastName,
-        gender: formData.gender,
-        paymentType: formData.paymentType,
-        idDocumentUrl: formData.idDocument,
-        proofOfAddressUrl: formData.proofOfAddress,
-        selfieUrl: formData.selfie,
-      });
+      const response = await updateKYC(formDataObject);
 
       if (response.success && response.data) {
         const updatedUser = response.data;
 
         // ✅ Update user info in localStorage
         const users = JSON.parse(localStorage.getItem("users") || "[]");
+        const userData = JSON.parse(localStorage.getItem("userData") || "[]");
         const registeredUsers = JSON.parse(
           localStorage.getItem("registeredUsers") || "[]"
         );
@@ -554,6 +581,13 @@ export function KYCRegistration({ onRegistrationComplete, userEmail }: Props) {
         }
 
         localStorage.setItem("users", JSON.stringify(users));
+        localStorage.setItem(
+          "userData",
+          JSON.stringify({
+            ...userData,
+            kyc: true,
+          })
+        );
 
         // ✅ Sync with registered users
         const regIndex = registeredUsers.findIndex(
