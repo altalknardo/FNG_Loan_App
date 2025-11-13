@@ -80,7 +80,7 @@ export function SignUp({ onSignUp, onSwitchToLogin }: Props) {
 
     // If starts with 0, replace with +234
     if (cleaned.startsWith("0")) {
-      cleaned = "+1" + cleaned.slice(1);
+      cleaned = "+234" + cleaned.slice(1);
     }
 
     // If starts with 234, add +
@@ -89,8 +89,8 @@ export function SignUp({ onSignUp, onSwitchToLogin }: Props) {
     }
 
     // If doesn't start with +234, assume it's missing
-    else if (!cleaned.startsWith("+1")) {
-      cleaned = "+1" + cleaned;
+    else if (!cleaned.startsWith("+234")) {
+      cleaned = "+234" + cleaned;
     }
 
     return cleaned;
