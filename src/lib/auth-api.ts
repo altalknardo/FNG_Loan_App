@@ -83,7 +83,11 @@ export interface KycRequest {
   dob?: string;
   firstName?: string;
   lastName?: string;
+  email?: string;
   gender?: string;
+  streetAddress?: string;
+  city?: string;
+  state?: string;
   paymentType?: string;
   idDocumentUrl?: string;
   proofOfAddressUrl?: string;

@@ -140,4 +140,7 @@ export function clearStorage() {
   localStorage.removeItem("loanServiceChargeBalance");
   localStorage.removeItem("upfrontRefundRequests");
   localStorage.removeItem("userOnboardingSkipped");
+  localStorage.removeItem("registeredUsers");
+  localStorage.removeItem("kycFileData");
+  localStorage.removeItem("smsVerifications");
 }
