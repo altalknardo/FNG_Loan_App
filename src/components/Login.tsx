@@ -350,14 +350,14 @@ export function Login({
 
           <form onSubmit={handleSubmit} className="space-y-5">
             <div className="space-y-2">
-              <Label htmlFor="username">Email</Label>
+              <Label htmlFor="username">Email or Phone Number</Label>
               <div className="relative group">
                 <InputIcon className="absolute left-3 top-3 h-5 w-5 text-gray-400 group-focus-within:text-purple-600 transition-colors" />
                 <Input
                   id="username"
                   type="text"
-                  // placeholder="email@example.com or 08012345678"
-                  placeholder="email@example.com"
+                  placeholder="email@example.com or 08012345678"
+                  // placeholder="email@example.com"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   className="pl-10 h-11 border-gray-200 focus:border-purple-600 focus:ring-purple-600"
