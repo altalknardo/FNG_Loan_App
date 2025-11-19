@@ -25,6 +25,10 @@
     "paths": {
       "@/*": ["./src/*"]
     }
+    // "baseUrl": "src",
+    // "paths": {
+    //   "components/*": ["components/*"]
+    // }
   },
   "include": ["src", "App.tsx", "components", "lib", "hooks", "styles"],
   "references": [{ "path": "./tsconfig.node.json" }]

@@ -41,7 +41,7 @@ export function ForgotPassword({ onBack, onResetRequested }: ForgotPasswordProps
       const users = JSON.parse(localStorage.getItem("users") || "[]");
       const userExists = users.some((u: any) => u.email === email);
 
-      if (!userExists) {
+      if (userExists) {
         toast.error("No account found with this email address");
         setIsSubmitting(false);
         return;
