@@ -195,7 +195,7 @@ export function DashboardLayout({
       {/* ...REMOVE hard-coded renderAdminContent/renderUserContent here... */}
 
       <main
-        className={`mx-auto px-4 sm:px-6 py-4 sm:py-6 transition-all duration-300 ${
+        className={`mx-auto py-4 sm:py-6 transition-all duration-300 ${
           isAdmin ? "max-w-7xl" : "max-w-md pb-20"
         }`}
       >

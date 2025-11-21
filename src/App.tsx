@@ -688,6 +688,23 @@ export default function App() {
             </ProtectedRoute>
           }
         />
+
+        <Route
+          path="/contribute"
+          element={
+            <ProtectedRoute isAuthenticated={isAuthenticated}>
+              {!isAdmin && !isKycCompleted() ? (
+                <Navigate to="/kycRegistration" replace />
+              ) : (
+                // <LoanSection />
+                <DashboardDefault
+                  renderedContent={<Contributions userEmail={""} />}
+                />
+              )}
+            </ProtectedRoute>
+          }
+        />
+
         {/* Admin Route - Protected */}
         <Route
           path="/admin"

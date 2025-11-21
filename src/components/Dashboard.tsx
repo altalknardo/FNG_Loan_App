@@ -18,14 +18,17 @@ import {
 } from "lucide-react";
 import { formatCurrency } from "../lib/utils";
 import { useNavigate } from "react-router-dom";
+import { ApiError, getUserDashboardData } from "../lib/userDashboard-api";
+import { StreakCard } from "./UserDashboard/DailyStreaks/DailyStreaks";
 
 interface DashboardProps {
   onNavigate: (tab: string) => void;
   userEmail?: string;
 }
-const userData = JSON.parse(localStorage.getItem("userData") || "{}");
 
 export function Dashboard({ onNavigate, userEmail }: DashboardProps) {
+  const userData = JSON.parse(localStorage.getItem("userData") || "{}");
+  const [userDashboardData, setUserDashboardData] = useState<any>(null);
   const navigate = useNavigate();
   // Separate balances
   const [contributionBalance, setContributionBalance] = useState(() => {
@@ -61,8 +64,12 @@ export function Dashboard({ onNavigate, userEmail }: DashboardProps) {
 
   // Get user's name from KYC data or registered users
   const [userName, setUserName] = useState("User");
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
 
   useEffect(() => {
+    console.log(userData, "UserData");
+
     setUserName(userData?.firstName + " " + userData?.lastName);
   }, [userData]);
 
@@ -121,16 +128,57 @@ export function Dashboard({ onNavigate, userEmail }: DashboardProps) {
         setLoanRepaid(loans[0].repaid);
       }
     };
+    const getDashboardData = async () => {
+      try {
+        // Call API to login
+        const response = await getUserDashboardData();
 
+        if (response.success && response.data) {
+          // Store auth token
+          console.log(response.data, "response");
+          setUserDashboardData(response?.data);
+        } else {
+          setError(response.message || "Login failed. Please try again.");
+          setIsLoading(false);
+        }
+      } catch (error: any) {
+        // Handle API errors
+        const apiError = error as ApiError;
+
+        // Check for field-specific errors
+        if (apiError.errors && Object.keys(apiError.errors).length > 0) {
+          const firstError = Object.values(apiError.errors)[0][0];
+          setError(firstError || apiError.message);
+        } else {
+          setError(
+            apiError.message ||
+              "Invalid credentials. Please check your email/phone and password."
+          );
+        }
+
+        setIsLoading(false);
+
+        // Fallback to localStorage for demo/admin users if API fails
+        if (
+          apiError.status === 404 ||
+          apiError.status === 500 ||
+          !apiError.status
+        ) {
+          console.warn("API login failed, trying localStorage fallback");
+        }
+      }
+    };
     // Listen for custom event
     window.addEventListener("balanceUpdated", handleStorageChange);
 
     // Check for updates periodically
     const interval = setInterval(handleStorageChange, 1000);
+    getDashboardData();
 
     return () => {
-      window.removeEventListener("balanceUpdated", handleStorageChange);
-      clearInterval(interval);
+      // getDashboardData();
+      // window.removeEventListener("balanceUpdated", handleStorageChange);
+      // clearInterval(interval);
     };
   }, []);
 
@@ -175,7 +223,9 @@ export function Dashboard({ onNavigate, userEmail }: DashboardProps) {
               <GreetingIcon className="h-5 w-5" />
               <p className="text-sm">{greeting.text}</p>
             </div>
-            <h2 className="text-3xl text-gray-900">Welcome, {userName || ""}! 👋</h2>
+            <h2 className="text-3xl text-gray-900">
+              Welcome, {userName || ""}! 👋
+            </h2>
             <p className="text-sm text-gray-600">
               Here's your financial overview
             </p>
@@ -191,19 +241,29 @@ export function Dashboard({ onNavigate, userEmail }: DashboardProps) {
         <div className="space-y-4">
           <div>
             <p className="text-emerald-100 text-sm">Total Balance</p>
-            <h2 className="text-4xl">{formatCurrency(totalBalance)}</h2>
+            <h2 className="text-4xl">
+              {formatCurrency(
+                userDashboardData?.balanceInfo?.totalBalance || 0
+              )}
+            </h2>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div className="bg-white/10 backdrop-blur-sm rounded-lg p-3">
               <p className="text-emerald-100 text-xs">Contribution Balance</p>
               <p className="text-xl mt-1">
-                {formatCurrency(contributionBalance)}
+                {formatCurrency(
+                  userDashboardData?.balanceInfo?.contributionBalance || 0
+                )}
               </p>
             </div>
             <div className="bg-white/10 backdrop-blur-sm rounded-lg p-3">
               <p className="text-emerald-100 text-xs">Active Loan</p>
-              <p className="text-xl mt-1">{formatCurrency(activeLoanAmount)}</p>
+              <p className="text-xl mt-1">
+                {formatCurrency(
+                  userDashboardData?.balanceInfo?.activeLoan || 0
+                )}
+              </p>
             </div>
             {loanDeposits > 0 && (
               <div className="bg-green-400/20 backdrop-blur-sm rounded-lg p-3 col-span-2 border border-green-300/30">
@@ -230,7 +290,8 @@ export function Dashboard({ onNavigate, userEmail }: DashboardProps) {
           {/* Quick Actions inside Balance Card */}
           <div className="grid grid-cols-2 gap-3 pt-2">
             <Button
-              onClick={() => onNavigate("contributions")}
+              // onClick={() => onNavigate("contributions")}
+              onClick={() => navigate("/contribute")}
               className="h-20 flex flex-col gap-2 bg-white/20 hover:bg-white/30 backdrop-blur-sm border border-white/30 text-white shadow-md transition-all"
             >
               <Wallet className="h-6 w-6" />
@@ -259,19 +320,31 @@ export function Dashboard({ onNavigate, userEmail }: DashboardProps) {
           <div className="space-y-2">
             <div className="flex justify-between text-sm">
               <span className="text-gray-700">
-                Repaid {formatCurrency(loanRepaid)} of{" "}
-                {formatCurrency(activeLoanAmount)}
+                Repaid{" "}
+                {formatCurrency(
+                  userDashboardData?.activeLoan?.repaidAmount || 0
+                )}{" "}
+                of{" "}
+                {formatCurrency(
+                  userDashboardData?.activeLoan?.totalAmount || 0
+                )}
               </span>
               <span className="text-orange-600">
-                {loanProgress.toFixed(0)}%
+                {/* {loanProgress.toFixed(0)}% */}
+                {userDashboardData?.activeLoan?.completetionPercentage}
               </span>
             </div>
-            <Progress value={loanProgress} className="h-3" />
+            <Progress value={Number(userDashboardData?.activeLoan?.completetionPercentage?.split(" ")[0] || 0)} className="h-3" />
           </div>
           <div className="flex justify-between text-sm bg-white/60 p-3 rounded-lg">
             <span className="text-gray-700">Next payment</span>
             <span className="text-gray-900">
-              {formatCurrency(100)} on Oct 20
+              {formatCurrency(
+                userDashboardData?.activeLoan?.nextPaymentAmount || 0
+              )}{" "}
+              {userDashboardData?.activeLoan?.nextPaymentDueDate
+                ? "on" + userDashboardData?.activeLoan?.nextPaymentDueDate
+                : ""}
             </span>
           </div>
         </div>
@@ -346,18 +419,21 @@ export function Dashboard({ onNavigate, userEmail }: DashboardProps) {
       <LoanReminderSystem onNavigate={onNavigate} />
 
       {/* Contribution Streak */}
-      <Card className="p-6 bg-gradient-to-br from-green-50 to-emerald-50 border-green-100">
+      {/* <Card className="p-6 bg-gradient-to-br from-green-50 to-emerald-50 border-green-100">
         <div className="flex items-start justify-between">
           <div className="space-y-1">
             <h3 className="text-gray-900">Daily Contribution Streak</h3>
-            <p className="text-4xl text-green-600">14 days</p>
+            <p className="text-4xl text-green-600">
+              {userDashboardData?.dailyContributionStreak || ""}{" "}
+            </p>
             <p className="text-sm text-green-700">Keep it up! 🔥</p>
           </div>
           <div className="bg-green-100 p-4 rounded-full shadow-sm">
             <TrendingUp className="h-7 w-7 text-green-600" />
           </div>
         </div>
-      </Card>
+      </Card> */}
+      <StreakCard streak={userDashboardData?.dailyContributionStreak || 0} />
 
       {/* Recent Transactions */}
       <Card className="p-6 bg-white shadow-sm">
@@ -374,42 +450,48 @@ export function Dashboard({ onNavigate, userEmail }: DashboardProps) {
             </Button>
           </div>
           <div className="space-y-3">
-            {recentTransactions.map((transaction) => (
-              <div
-                key={transaction.id}
-                className="flex items-center justify-between p-3 rounded-lg hover:bg-gray-50 transition-colors"
-              >
-                <div className="flex items-center gap-3">
-                  <div
-                    className={`p-2 rounded-full ${
-                      transaction.amount > 0
-                        ? "bg-gradient-to-br from-green-100 to-emerald-100"
-                        : "bg-gradient-to-br from-red-100 to-pink-100"
+            {userDashboardData?.recenetTransactions?.map(
+              (transaction: any, index: number) => (
+                <div
+                  key={index}
+                  className="flex items-center justify-between p-3 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <div
+                      className={`p-2 rounded-full ${
+                        transaction.amount > 0
+                          ? "bg-gradient-to-br from-green-100 to-emerald-100"
+                          : "bg-gradient-to-br from-red-100 to-pink-100"
+                      }`}
+                    >
+                      {transaction.amount > 0 ? (
+                        <ArrowUpRight className="h-4 w-4 text-green-600" />
+                      ) : (
+                        <ArrowDownRight className="h-4 w-4 text-red-600" />
+                      )}
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-900">
+                        {transaction.transactionType === "dailyContribution"
+                          ? "Daily Contribution"
+                          : "Loan Payment"}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {transaction.date}
+                      </p>
+                    </div>
+                  </div>
+                  <p
+                    className={`font-medium ${
+                      transaction.amount > 0 ? "text-green-600" : "text-red-600"
                     }`}
                   >
-                    {transaction.amount > 0 ? (
-                      <ArrowUpRight className="h-4 w-4 text-green-600" />
-                    ) : (
-                      <ArrowDownRight className="h-4 w-4 text-red-600" />
-                    )}
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-900">
-                      {transaction.description}
-                    </p>
-                    <p className="text-xs text-gray-500">{transaction.date}</p>
-                  </div>
+                    {transaction.amount > 0 ? "+" : ""}
+                    {formatCurrency(Math.abs(transaction.amount))}
+                  </p>
                 </div>
-                <p
-                  className={`font-medium ${
-                    transaction.amount > 0 ? "text-green-600" : "text-red-600"
-                  }`}
-                >
-                  {transaction.amount > 0 ? "+" : ""}
-                  {formatCurrency(Math.abs(transaction.amount))}
-                </p>
-              </div>
-            ))}
+              )
+            )}
           </div>
         </div>
       </Card>
