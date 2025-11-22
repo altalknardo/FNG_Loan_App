@@ -68,8 +68,6 @@ export function Dashboard({ onNavigate, userEmail }: DashboardProps) {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    console.log(userData, "UserData");
-
     setUserName(userData?.firstName + " " + userData?.lastName);
   }, [userData]);
 
@@ -334,7 +332,14 @@ export function Dashboard({ onNavigate, userEmail }: DashboardProps) {
                 {userDashboardData?.activeLoan?.completetionPercentage}
               </span>
             </div>
-            <Progress value={Number(userDashboardData?.activeLoan?.completetionPercentage?.split(" ")[0] || 0)} className="h-3" />
+            <Progress
+              value={Number(
+                userDashboardData?.activeLoan?.completetionPercentage?.split(
+                  " "
+                )[0] || 0
+              )}
+              className="h-3"
+            />
           </div>
           <div className="flex justify-between text-sm bg-white/60 p-3 rounded-lg">
             <span className="text-gray-700">Next payment</span>
@@ -433,7 +438,11 @@ export function Dashboard({ onNavigate, userEmail }: DashboardProps) {
           </div>
         </div>
       </Card> */}
-      <StreakCard streak={userDashboardData?.dailyContributionStreak || 0} />
+      {/* {userDashboardData && ( */}
+      <StreakCard
+        streak={userDashboardData?.dailyContributionStreak || "0 days"}
+      />
+      {/* )} */}
 
       {/* Recent Transactions */}
       <Card className="p-6 bg-white shadow-sm">

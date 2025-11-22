@@ -95,10 +95,10 @@ export function Contributions({ userEmail }: ContributionsProps) {
     let checkDate = new Date(today);
     
     while (true) {
-      const dateStr = checkDate.toISOString().split('T')[0];
+      const dateStr = checkDate?.toISOString()?.split('T')[0] || "";
       if (contributionsByDate[dateStr] && contributionsByDate[dateStr].length > 0) {
         streak++;
-        checkDate.setDate(checkDate.getDate() - 1);
+        checkDate?.setDate(checkDate?.getDate() - 1);
       } else {
         break;
       }

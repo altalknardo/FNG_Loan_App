@@ -67,7 +67,8 @@ const getStreakData = (streak: number) => {
 };
 
 export const StreakCard = ({ streak }: StreakCardProps) => {
-  const streakData = getStreakData(Number(streak.split(" ")[0]));
+    
+  const streakData = getStreakData(Number(streak?.split(" ")[0] || 0));
   const IconComponent = streakData.icon;
 
   return (
