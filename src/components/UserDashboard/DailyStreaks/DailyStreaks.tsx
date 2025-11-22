@@ -6,8 +6,6 @@ interface StreakCardProps {
 }
 
 const getStreakData = (streak: number) => {
-    console.log(streak, "streak");
-    
   if (streak === 0) {
     return {
       gradient: "from-gray-50 to-slate-50",
@@ -67,7 +65,6 @@ const getStreakData = (streak: number) => {
 };
 
 export const StreakCard = ({ streak }: StreakCardProps) => {
-    
   const streakData = getStreakData(Number(streak?.split(" ")[0] || 0));
   const IconComponent = streakData.icon;
 

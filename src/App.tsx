@@ -329,7 +329,7 @@ export default function App() {
   const renderUserContent = () => {
     switch (activeTab) {
       case "dashboard":
-        return <Dashboard onNavigate={setActiveTab} userEmail={userEmail} />;
+        return <Dashboard setActiveTab={setActiveTab} userEmail={userEmail} />;
       case "loans":
         return <LoanSection />;
       case "contributions":
@@ -400,11 +400,11 @@ export default function App() {
   };
 
   const userNavItems = [
-    { id: "dashboard", label: "Home", icon: Home },
-    { id: "loans", label: "Loans", icon: HandCoins },
-    { id: "contributions", label: "Save", icon: Wallet },
-    { id: "history", label: "History", icon: History },
-    { id: "profile", label: "Profile", icon: User },
+    { id: "dashboard", label: "Home", icon: Home, route: "/" },
+    { id: "loans", label: "Loans", icon: HandCoins, route: "/request-loan" },
+    { id: "contributions", label: "Save", icon: Wallet, route: "/contribute" },
+    { id: "history", label: "History", icon: History, route: "/history" },
+    { id: "profile", label: "Profile", icon: User, route: "/profile" },
   ];
 
   const adminNavItems = [
@@ -670,7 +670,11 @@ export default function App() {
                 <Navigate to="/kycRegistration" replace />
               ) : (
                 // <DashboardContent />
-                <DashboardDefault renderedContent={<DashboardContent />} />
+                <DashboardDefault
+                  renderedContent={
+                    <DashboardContent />
+                  }
+                />
               )}
             </ProtectedRoute>
           }

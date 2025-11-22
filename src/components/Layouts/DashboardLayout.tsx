@@ -1,3 +1,4 @@
+import { useNavigate } from "react-router-dom";
 import { BrandLogoCompact } from "../../components/BrandLogo";
 import { OfflineIndicator } from "../../components/OfflineIndicator";
 import { OnboardingTutorial } from "../../components/OnboardingTutorial";
@@ -58,6 +59,7 @@ export function DashboardLayout({
   renderContent,
   ...props
 }: DashboardLayoutProps) {
+  const navigate = useNavigate();
   const showKYCPendingBanner = !isAdmin && kycStatus === "pending";
   const showKYCRejectedBanner = !isAdmin && kycStatus === "rejected";
 
@@ -213,7 +215,10 @@ export function DashboardLayout({
                 return (
                   <button
                     key={item.id}
-                    onClick={() => props?.setActiveTab(item.id)}
+                    onClick={() => {
+                      navigate(item.route);
+                      props?.setActiveTab(item.id)
+                    }}
                     className={`flex flex-col items-center gap-1 py-3 px-4 transition-colors ${
                       isActive
                         ? "text-blue-600"
