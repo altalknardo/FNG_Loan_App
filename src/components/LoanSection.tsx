@@ -95,7 +95,7 @@ const loanTypes: Record<LoanType, LoanTypeConfig> = {
   }
 };
 
-export function LoanSection({ onNavigate, userEmail }: LoanSectionProps) {
+export function LoanSection() {
   const [selectedLoanType, setSelectedLoanType] = useState<LoanType>("sme");
   const [loanAmount, setLoanAmount] = useState([100000]);
   const [loanAmountInput, setLoanAmountInput] = useState("100000");
@@ -1580,7 +1580,7 @@ export function LoanSection({ onNavigate, userEmail }: LoanSectionProps) {
                             <Button 
                               onClick={() => {
                                 if (!hasPaymentMethods) {
-                                  onNavigate('payments');
+                                  // onNavigate('payments');
                                   toast.error("Please add a bank account first");
                                 } else {
                                   setSelectedLoanId(loan.id);
