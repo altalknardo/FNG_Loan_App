@@ -22,11 +22,11 @@ import { ApiError, getUserDashboardData } from "../lib/userDashboard-api";
 import { StreakCard } from "./UserDashboard/DailyStreaks/DailyStreaks";
 
 interface DashboardProps {
-  onNavigate: (tab: string) => void;
+  setActiveTab: (tab: string) => void;
   userEmail?: string;
 }
 
-export function Dashboard({ onNavigate, userEmail }: DashboardProps) {
+export function Dashboard({ setActiveTab, userEmail }: DashboardProps) {
   const userData = JSON.parse(localStorage.getItem("userData") || "{}");
   const [userDashboardData, setUserDashboardData] = useState<any>(null);
   const navigate = useNavigate();
@@ -289,14 +289,20 @@ export function Dashboard({ onNavigate, userEmail }: DashboardProps) {
           <div className="grid grid-cols-2 gap-3 pt-2">
             <Button
               // onClick={() => onNavigate("contributions")}
-              onClick={() => navigate("/contribute")}
+              onClick={() => {
+                navigate("/contribute");
+                setActiveTab("contributions");
+              }}
               className="h-20 flex flex-col gap-2 bg-white/20 hover:bg-white/30 backdrop-blur-sm border border-white/30 text-white shadow-md transition-all"
             >
               <Wallet className="h-6 w-6" />
               <span>Contribute</span>
             </Button>
             <Button
-              onClick={() => navigate("/request-loan")}
+              onClick={() => {
+                navigate("/request-loan");
+                setActiveTab("loans");
+              }}
               className="h-20 flex flex-col gap-2 bg-white/20 hover:bg-white/30 backdrop-blur-sm border border-white/30 text-white shadow-md transition-all"
             >
               <HandCoins className="h-6 w-6" />
@@ -403,7 +409,7 @@ export function Dashboard({ onNavigate, userEmail }: DashboardProps) {
                 </div>
 
                 <Button
-                  onClick={() => onNavigate("loans")}
+                  onClick={() => setActiveTab("loans")}
                   className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700"
                 >
                   <TrendingDown className="h-4 w-4 mr-2" />
@@ -421,7 +427,7 @@ export function Dashboard({ onNavigate, userEmail }: DashboardProps) {
       })()}
 
       {/* Loan Reminders */}
-      <LoanReminderSystem onNavigate={onNavigate} />
+      <LoanReminderSystem onNavigate={setActiveTab} />
 
       {/* Contribution Streak */}
       {/* <Card className="p-6 bg-gradient-to-br from-green-50 to-emerald-50 border-green-100">
@@ -452,7 +458,7 @@ export function Dashboard({ onNavigate, userEmail }: DashboardProps) {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => onNavigate("history")}
+              onClick={() => setActiveTab("history")}
               className="text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50"
             >
               View All
