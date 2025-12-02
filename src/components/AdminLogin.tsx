@@ -6,18 +6,31 @@ import { Label } from "./ui/label";
 import { Checkbox } from "./ui/checkbox";
 import { Alert, AlertDescription } from "./ui/alert";
 import { BrandLogo } from "./BrandLogo";
-import { Shield, Lock, Mail, AlertCircle, Phone, ArrowRight, ShieldCheck } from "lucide-react";
+import {
+  Shield,
+  Lock,
+  Mail,
+  AlertCircle,
+  Phone,
+  ArrowRight,
+  ShieldCheck,
+  EyeOff,
+  Eye,
+} from "lucide-react";
 import { toast } from "sonner@2.0.3";
 import { motion } from "motion/react";
+import { ApiError, login } from "../lib/auth-api";
 
 interface Props {
   onLogin: (email: string) => void;
+  onAdminLogin?: (emailOrPhone: string) => void;
   onBack: () => void;
 }
 
-export function AdminLogin({ onLogin, onBack }: Props) {
+export function AdminLogin({ onLogin, onAdminLogin, onBack }: Props) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
@@ -40,10 +53,10 @@ export function AdminLogin({ onLogin, onBack }: Props) {
   };
 
   const isValidPhone = (str: string) => {
-    return /^(\+?234|0)?[789]\d{9}$/.test(str.replace(/\s/g, ''));
+    return /^(\+?234|0)?[789]\d{9}$/.test(str.replace(/\s/g, ""));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
 
@@ -59,57 +72,181 @@ export function AdminLogin({ onLogin, onBack }: Props) {
 
     setIsLoading(true);
 
-    // Simulate login
-    setTimeout(() => {
-      // Demo admin credentials
-      const demoAdmins = [
-        { email: "admin@fng.com", phone: "09012345678", password: "admin123", status: "active" },
-        { email: "superadmin@fng.com", phone: "09087654321", password: "super123", status: "active" }
-      ];
+    try {
+      // Call API to login
+      const response = await login({
+        emailOrPhone: username.trim(),
+        password,
+      });
 
-      // Get registered admins from settings
-      const registeredAdmins = JSON.parse(localStorage.getItem("adminUsers") || "[]");
-      const allAdmins = [...demoAdmins, ...registeredAdmins];
+      if (response.success && response.data) {
+        // Store auth token
+        if (response?.token) {
+          localStorage.setItem(
+            "authToken",
+            response?.token || response.data.token
+          );
+          localStorage.setItem(
+            "userData",
+            JSON.stringify({
+              ...response?.data,
+              token: response?.token || response.data.token,
+            })
+          );
+        }
 
-      const validAdmin = allAdmins.find(
-        u => (u.email === username || u.phone === username) && u.password === password
-      );
+        // Store user data in localStorage for backward compatibility
+        const userData = response?.data?.user || response?.data;
+        const users = JSON.parse(localStorage.getItem("users") || "[]");
+        const userIndex = users.findIndex(
+          (u: any) =>
+            u.phoneNumber === userData?.phoneNumber ||
+            u.email === userData?.email
+        );
+        if (userIndex !== -1) {
+          users[userIndex] = {
+            ...users[userIndex],
+            ...userData,
+          };
+        } else {
+          users.push({
+            ...userData,
+          });
+        }
+        localStorage.setItem("users", JSON.stringify(users));
 
-      // Check if admin is active
-      if (validAdmin && validAdmin.status === "inactive") {
-        setError("This admin account has been deactivated. Contact super admin.");
-        setIsLoading(false);
-        return;
-      }
-
-      if (validAdmin) {
         // Save credentials if remember me is checked
         if (rememberMe) {
-          localStorage.setItem("savedAdminUsername", username);
-          localStorage.setItem("savedAdminPassword", password);
-          localStorage.setItem("rememberAdminMe", "true");
+          localStorage.setItem("savedUsername", username);
+          // localStorage.setItem("savedPassword", password);
+          localStorage.setItem("rememberMe", "true");
         } else {
-          localStorage.removeItem("savedAdminUsername");
-          localStorage.removeItem("savedAdminPassword");
-          localStorage.removeItem("rememberAdminMe");
+          localStorage.removeItem("savedUsername");
+          localStorage.removeItem("savedPassword");
+          localStorage.removeItem("rememberMe");
         }
 
-        // Save current admin role and permissions
-        localStorage.setItem("currentAdminRole", validAdmin.role || "superadmin");
-        localStorage.setItem("currentAdminEmail", validAdmin.email);
-        if (validAdmin.permissions) {
-          localStorage.setItem("currentAdminPermissions", JSON.stringify(validAdmin.permissions));
-        } else {
-          localStorage.removeItem("currentAdminPermissions");
+        // Check if user is admin
+        if (userData.role === "admin" && onAdminLogin) {
+          toast.success("Admin login successful!");
+          onAdminLogin(userData.email || userData.phoneNumber);
+          return;
         }
 
-        toast.success("Admin login successful!");
-        onLogin(username);
+        // Check if KYC is completed
+        // Note: We allow login but will redirect to KYC form in App.tsx
+        // This allows user to be authenticated and see the KYC form
+        setIsLoading(false);
+        toast.success(response.message || "Login successful!");
+
+        // onLogin(userData || {});
       } else {
-        setError("Invalid admin credentials. Please check your email/phone and password.");
+        setError(response.message || "Login failed. Please try again.");
         setIsLoading(false);
       }
-    }, 1000);
+    } catch (error: any) {
+      // Handle API errors
+      const apiError = error as ApiError;
+
+      // Check for field-specific errors
+      if (apiError.errors && Object.keys(apiError.errors).length > 0) {
+        const firstError = Object.values(apiError.errors)[0][0];
+        setError(firstError || apiError.message);
+      } else {
+        setError(
+          apiError.message ||
+            "Invalid credentials. Please check your email/phone and password."
+        );
+      }
+
+      setIsLoading(false);
+
+      // Fallback to localStorage for demo/admin users if API fails
+      if (
+        apiError.status === 404 ||
+        apiError.status === 500 ||
+        !apiError.status
+      ) {
+        console.warn("API login failed, trying localStorage fallback");
+        // handleLocalStorageFallback();
+      }
+    }
+
+    // Simulate login
+    // setTimeout(() => {
+    //   // Demo admin credentials
+    //   const demoAdmins = [
+    //     {
+    //       email: "admin@fng.com",
+    //       phone: "09012345678",
+    //       password: "admin123",
+    //       status: "active",
+    //     },
+    //     {
+    //       email: "superadmin@fng.com",
+    //       phone: "09087654321",
+    //       password: "super123",
+    //       status: "active",
+    //     },
+    //   ];
+
+    //   // Get registered admins from settings
+    //   const registeredAdmins = JSON.parse(
+    //     localStorage.getItem("adminUsers") || "[]"
+    //   );
+    //   const allAdmins = [...demoAdmins, ...registeredAdmins];
+
+    //   const validAdmin = allAdmins.find(
+    //     (u) =>
+    //       (u.email === username || u.phone === username) &&
+    //       u.password === password
+    //   );
+
+    //   // Check if admin is active
+    //   if (validAdmin && validAdmin.status === "inactive") {
+    //     setError(
+    //       "This admin account has been deactivated. Contact super admin."
+    //     );
+    //     setIsLoading(false);
+    //     return;
+    //   }
+
+    //   if (validAdmin) {
+    //     // Save credentials if remember me is checked
+    //     if (rememberMe) {
+    //       localStorage.setItem("savedAdminUsername", username);
+    //       localStorage.setItem("savedAdminPassword", password);
+    //       localStorage.setItem("rememberAdminMe", "true");
+    //     } else {
+    //       localStorage.removeItem("savedAdminUsername");
+    //       localStorage.removeItem("savedAdminPassword");
+    //       localStorage.removeItem("rememberAdminMe");
+    //     }
+
+    //     // Save current admin role and permissions
+    //     localStorage.setItem(
+    //       "currentAdminRole",
+    //       validAdmin.role || "superadmin"
+    //     );
+    //     localStorage.setItem("currentAdminEmail", validAdmin.email);
+    //     if (validAdmin.permissions) {
+    //       localStorage.setItem(
+    //         "currentAdminPermissions",
+    //         JSON.stringify(validAdmin.permissions)
+    //       );
+    //     } else {
+    //       localStorage.removeItem("currentAdminPermissions");
+    //     }
+
+    //     toast.success("Admin login successful!");
+    //     onLogin(username);
+    //   } else {
+    //     setError(
+    //       "Invalid admin credentials. Please check your email/phone and password."
+    //     );
+    //     setIsLoading(false);
+    //   }
+    // }, 1000);
   };
 
   const inputIcon = isValidEmail(username) ? Mail : Phone;
@@ -185,13 +322,26 @@ export function AdminLogin({ onLogin, onBack }: Props) {
                 <Lock className="absolute left-3 top-3 h-5 w-5 text-gray-400 group-focus-within:text-orange-600 transition-colors" />
                 <Input
                   id="password"
-                  type="password"
+                  type={showPassword ? "text" : "password"}
                   placeholder="Enter your admin password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="pl-10 h-11 border-gray-200 focus:border-orange-600 focus:ring-orange-600"
                   disabled={isLoading}
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-3 text-gray-400 hover:text-purple-600 transition-colors"
+                  disabled={isLoading}
+                  tabIndex={-1}
+                >
+                  {showPassword ? (
+                    <Eye className="h-5 w-5" />
+                  ) : (
+                    <EyeOff className="h-5 w-5" />
+                  )}
+                </button>
               </div>
             </div>
 
@@ -200,7 +350,9 @@ export function AdminLogin({ onLogin, onBack }: Props) {
                 <Checkbox
                   id="remember"
                   checked={rememberMe}
-                  onCheckedChange={(checked) => setRememberMe(checked as boolean)}
+                  onCheckedChange={(checked) =>
+                    setRememberMe(checked as boolean)
+                  }
                   disabled={isLoading}
                 />
                 <Label
@@ -246,8 +398,6 @@ export function AdminLogin({ onLogin, onBack }: Props) {
               )}
             </Button>
           </form>
-
-
 
           {/* Security Notice */}
           <div className="mt-6 pt-6 border-t">

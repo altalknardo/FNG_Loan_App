@@ -82,7 +82,7 @@ export function DashboardLayout({
       <OfflineIndicator />
 
       {/* Onboarding Tutorial */}
-      {isAuthenticated && shouldShowOnboarding && (
+      {isAuthenticated && shouldShowOnboarding && !isAdmin && (
         <OnboardingTutorial
           isAdmin={isAdmin}
           onComplete={() => props?.setShouldShowOnboarding(false)}
@@ -245,7 +245,7 @@ export function DashboardLayout({
           {/* Collapse Toggle Button */}
           <button
             onClick={() => props?.setSidebarCollapsed(!props?.sidebarCollapsed)}
-            className="absolute -right-3 top-20 sm:top-24 bg-white border rounded-full p-1.5 shadow-md hover:shadow-lg transition-shadow"
+            className="absolute -right-2 top-10 sm:top-24 bg-white border rounded-full p-1.5 shadow-md hover:shadow-lg transition-shadow"
             title={
               props?.sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"
             }

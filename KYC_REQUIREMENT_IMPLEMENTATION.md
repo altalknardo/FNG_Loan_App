@@ -242,3 +242,5 @@ The backend should return `kycCompleted: false` for new users:
 
 The KYC requirement is now fully enforced! 🎉
 
+
+

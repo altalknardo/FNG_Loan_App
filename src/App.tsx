@@ -488,7 +488,7 @@ export default function App() {
     setKycStatus("not_submitted");
     setShouldShowOnboarding(false);
     clearStorage();
-    navigate("/login");
+    navigate(isAdmin ? "/admin/login" : "/login");
   };
 
   const handleSplashComplete = () => {
@@ -617,6 +617,7 @@ export default function App() {
             !isAuthenticated ? (
               <AdminLogin
                 onLogin={handleAdminLogin}
+                onAdminLogin={handleAdminLogin}
                 onBack={() => navigate("/login")}
               />
             ) : (
@@ -670,11 +671,7 @@ export default function App() {
                 <Navigate to="/kycRegistration" replace />
               ) : (
                 // <DashboardContent />
-                <DashboardDefault
-                  renderedContent={
-                    <DashboardContent />
-                  }
-                />
+                <DashboardDefault renderedContent={<DashboardContent />} />
               )}
             </ProtectedRoute>
           }
@@ -816,32 +813,33 @@ export default function App() {
   // Admin Dashboard Content Component
   function AdminDashboardContent() {
     return (
+      // <div className="min-h-screen bg-gray-50">
       <div className="min-h-screen bg-gray-50">
         {/* Session Timeout Handler */}
-        <SessionTimeoutHandler
+        {/* <SessionTimeoutHandler
           isAuthenticated={isAuthenticated}
           onLogout={handleLogout}
           timeoutMinutes={30}
           warningMinutes={5}
-        />
+        /> */}
 
         {/* PWA Update Prompt */}
-        <PWAUpdatePrompt />
+        {/* <PWAUpdatePrompt /> */}
 
         {/* Offline Indicator */}
-        <OfflineIndicator />
+        {/* <OfflineIndicator /> */}
 
         {/* Onboarding Tutorial */}
-        {isAuthenticated && shouldShowOnboarding && (
+        {/* {isAuthenticated && shouldShowOnboarding && (
           <OnboardingTutorial
             isAdmin={isAdmin}
             onComplete={() => setShouldShowOnboarding(false)}
             onSkip={() => setShouldShowOnboarding(false)}
           />
-        )}
+        )} */}
 
         {/* Header */}
-        <header className="bg-white border-b sticky top-0 z-30 shadow-sm">
+        {/* <header className="bg-white border-b sticky top-0 z-30 shadow-sm">
           <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6">
             <div className="flex items-center justify-between h-14 sm:h-16 gap-2 sm:gap-3">
               <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
@@ -891,7 +889,7 @@ export default function App() {
               </div>
             </div>
           </div>
-        </header>
+        </header> */}
 
         {/* Main Content */}
         <main
@@ -910,7 +908,7 @@ export default function App() {
         >
           <button
             onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-            className="absolute -right-3 top-20 sm:top-24 bg-white border rounded-full p-1.5 shadow-md hover:shadow-lg transition-shadow"
+            className="absolute -right-2 top-20 sm:top-24 bg-white border rounded-full p-1.5 shadow-md hover:shadow-lg transition-shadow"
             title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
           >
             {sidebarCollapsed ? (
