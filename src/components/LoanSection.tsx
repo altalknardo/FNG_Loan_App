@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { use, useEffect, useState } from "react";
 import { Card } from "./ui/card";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
@@ -56,6 +56,8 @@ import {
   calculateLoanRepayment,
   calculateUpfrontCosts,
 } from "../lib/utils";
+import { ApiError, getLoanData, upfrontTransfer } from "../lib/loan-api";
+import ThreeDotsLoader from "./ui/loader";
 
 interface PaymentMethod {
   id: number;
@@ -136,8 +138,9 @@ const loanTypes: Record<LoanType, LoanTypeConfig> = {
 
 export function LoanSection() {
   const [selectedLoanType, setSelectedLoanType] = useState<LoanType>("sme");
-  const [loanAmount, setLoanAmount] = useState([100000]);
-  const [loanAmountInput, setLoanAmountInput] = useState("100000");
+
+  const [loanAmount, setLoanAmount] = useState([50000]);
+  const [loanAmountInput, setLoanAmountInput] = useState("50000");
   const [loanPeriod, setLoanPeriod] = useState("12");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
@@ -156,6 +159,24 @@ export function LoanSection() {
   const [guarantorCustomerId, setGuarantorCustomerId] = useState<number | null>(
     null
   );
+  const [loanData, setLoanData] = useState<any>({
+    loanType: "sme",
+    loanAmount: "50000",
+    repaymentPeriod: "12 weeks",
+    loanPurpose: "",
+    gurantorInformation: {
+      gNIN: "",
+      gFullName: "",
+      gPhone: "",
+      gAddress: "",
+      gEmployer: "",
+      gRelationship: "",
+    },
+    refNo: "",
+    upfrontCost: "",
+    paymentType: "manual",
+    file: null,
+  });
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [acceptedGuarantorTerms, setAcceptedGuarantorTerms] = useState(false);
   const [loanPurpose, setLoanPurpose] = useState("");
@@ -176,9 +197,12 @@ export function LoanSection() {
     const saved = localStorage.getItem("paymentMethods");
     return saved ? JSON.parse(saved) : [];
   });
+  const [loanRequests, setLoanRequests] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
 
   // Load active loans from localStorage
   const [activeLoans, setActiveLoans] = useState([]);
+  const [error, setError] = useState("");
   // const [activeLoans, setActiveLoans] = useState(() => {
   //   const saved = localStorage.getItem("activeLoans");
   //   return saved ? JSON.parse(saved) : [
@@ -208,6 +232,7 @@ export function LoanSection() {
     interestRateDecimal
   );
   const upfrontCosts = calculateUpfrontCosts(loanAmount[0], selectedLoanType);
+
   const weeklyPayment = loanCalculation.weeklyPayment;
 
   // Check if customer has any active unpaid loans
@@ -549,6 +574,10 @@ export function LoanSection() {
   };
 
   const handleSliderChange = (value: number[]) => {
+    setLoanData({
+      ...loanData,
+      loanAmount: value[0].toString(),
+    });
     setLoanAmount(value);
     setLoanAmountInput(value[0].toString());
   };
@@ -585,6 +614,13 @@ export function LoanSection() {
   // NIN lookup function
   const handleNINLookup = (nin: string) => {
     setGuarantorNIN(nin);
+    setLoanData({
+      ...loanData,
+      gurantorInformation: {
+        ...loanData?.gurantorInformation,
+        gNIN: nin,
+      },
+    });
 
     // Only search if NIN has 11 digits (standard NIN length in Nigeria)
     if (nin.length === 11) {
@@ -597,6 +633,7 @@ export function LoanSection() {
         (submission: any) =>
           submission.nin === nin && submission.status === "approved"
       );
+      console.log(matchingCustomer, "matching");
 
       if (matchingCustomer) {
         // Auto-populate guarantor information
@@ -607,6 +644,16 @@ export function LoanSection() {
         setGuarantorEmployer(matchingCustomer.employer || "");
         setIsGuarantorRegistered(true);
         setGuarantorCustomerId(matchingCustomer.id);
+        setLoanData({
+          ...loanData,
+          gurantorInformation: {
+            ...loanData?.gurantorInformation,
+            gFullName: matchingCustomer.fullName,
+            gPhone: matchingCustomer.phone,
+            gAddress: matchingCustomer.address,
+            gEmployer: matchingCustomer.employer || "",
+          },
+        });
 
         toast.success(
           `Guarantor found! Information auto-filled from registered customer: ${matchingCustomer.fullName}`
@@ -621,6 +668,16 @@ export function LoanSection() {
           setGuarantorEmployer("");
           setIsGuarantorRegistered(false);
           setGuarantorCustomerId(null);
+          setLoanData({
+            ...loanData,
+            gurantorInformation: {
+              ...loanData?.gurantorInformation,
+              gFullName: "",
+              gPhone: "",
+              gAddress: "",
+              gEmployer: "",
+            },
+          });
 
           toast.info(
             "NIN not found in our system. Please enter guarantor details manually."
@@ -636,10 +693,42 @@ export function LoanSection() {
       setGuarantorEmployer("");
       setIsGuarantorRegistered(false);
       setGuarantorCustomerId(null);
+      setLoanData({
+        ...loanData,
+        gurantorInformation: {
+          ...loanData?.gurantorInformation,
+          gFullName: "",
+          gPhone: "",
+          gAddress: "",
+          gEmployer: "",
+        },
+      });
     }
   };
 
-  const handleApplyLoan = () => {
+  const resetStates = () => {
+    setLoanPurpose("");
+    setGuarantorNIN("");
+    setGuarantorName("");
+    setGuarantorPhone("");
+    setGuarantorAddress("");
+    setGuarantorRelationship("");
+    setGuarantorEmployer("");
+    setGuarantorEmail("");
+    setIsGuarantorRegistered(false);
+    setGuarantorCustomerId(null);
+    setAcceptedTerms(false);
+    setAcceptedGuarantorTerms(false);
+    setTermsAccepted(false);
+    setPayUpfrontFromContributions(false);
+    setUpfrontPaidInDialog(false);
+    setIsDialogOpen(false);
+  };
+
+  const handleApplyLoan = async (type: string) => {
+    console.log(type);
+
+    // if (type === "loan") {
     // Validate loan purpose
     if (!loanPurpose) {
       toast.error("Please specify the loan purpose");
@@ -662,19 +751,16 @@ export function LoanSection() {
       toast.error("Please fill in all guarantor information");
       return;
     }
-
     if (!acceptedTerms || !acceptedGuarantorTerms) {
       toast.error("Please accept all terms and conditions");
       return;
     }
-
     // NEW: Validate that main loan terms have been accepted
     if (!termsAccepted) {
       toast.error("Please read and accept the loan terms and conditions");
       setTermsDialogOpen(true);
       return;
     }
-
     // Validate upfront payment - MUST be paid before submission
     if (!payUpfrontFromContributions && !upfrontPaidInDialog) {
       toast.error(
@@ -682,7 +768,6 @@ export function LoanSection() {
       );
       return;
     }
-
     // Handle upfront payment from contributions
     let upfrontPaid = false;
     let paidFrom = null;
@@ -861,24 +946,7 @@ export function LoanSection() {
         );
       }
     }
-
-    // Reset form
-    setLoanPurpose("");
-    setGuarantorNIN("");
-    setGuarantorName("");
-    setGuarantorPhone("");
-    setGuarantorAddress("");
-    setGuarantorRelationship("");
-    setGuarantorEmployer("");
-    setGuarantorEmail("");
-    setIsGuarantorRegistered(false);
-    setGuarantorCustomerId(null);
-    setAcceptedTerms(false);
-    setAcceptedGuarantorTerms(false);
-    setTermsAccepted(false);
-    setPayUpfrontFromContributions(false);
-    setUpfrontPaidInDialog(false);
-    setIsDialogOpen(false);
+    // }
   };
 
   const handleUpfrontPaymentInDialog = () => {
@@ -929,8 +997,70 @@ export function LoanSection() {
 
   const LoanIcon = currentLoanConfig.icon;
 
+  useEffect(() => {
+    // Initialize with default loan type
+    setLoanData({
+      ...loanData,
+      loanType: selectedLoanType,
+      loanAmount: loanAmount[0].toString(),
+      upfrontCost: upfrontCosts.totalUpfront.toString(),
+    });
+  }, [loanAmount, selectedLoanType]);
+
+  const fetchLoanData = async () => {
+    setIsLoading(true);
+    try {
+      // Call API to login
+      const response = await getLoanData();
+
+      // if (response?.success && response?.loanRequests) {
+      if (response?.loanRequests) {
+        // Store auth token
+        console.log(response, "response");
+
+        setLoanRequests(response?.loanRequests || []);
+      } else {
+        setError(response.message || "Failed to load loan data");
+        setIsLoading(false);
+      }
+    } catch (error: any) {
+      // Handle API errors
+      const apiError = error as ApiError;
+
+      // Check for field-specific errors
+      if (apiError.errors && Object.keys(apiError.errors).length > 0) {
+        const firstError = Object.values(apiError.errors)[0][0];
+        setError(firstError || apiError.message);
+      } else {
+        setError(
+          apiError.message ||
+            "Invalid credentials. Please check your email/phone and password."
+        );
+      }
+
+      setIsLoading(false);
+
+      // Fallback to localStorage for demo/admin users if API fails
+      if (
+        apiError.status === 404 ||
+        apiError.status === 500 ||
+        !apiError.status
+      ) {
+        console.warn("API unavailable, loading loan data from localStorage");
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchLoanData();
+  }, []);
+
+  console.log(loanRequests);
+
   return (
-    <div className="space-y-6 pb-20">
+    <div className="space-y-6 pb-20 px-4">
       {/* Active Loan Restriction Banner */}
       {hasUnpaidLoan && (
         <Alert className="bg-orange-50 border-orange-300">
@@ -2093,6 +2223,85 @@ export function LoanSection() {
       )}
 
       {/* Loan History */}
+      {}
+      <div className="space-y-4">
+        <h3>Upfront Payment Requests</h3>
+        {isLoading ? (
+          <div className="flex items-center justify-center">
+            <div className="h-3 w-3 sm:h-5 sm:w-5 border-2 border-[#000000] border-t-transparent rounded-full animate-spin mr-1.5" />
+          </div>
+        ) : (
+          <>
+            {loanRequests?.filter((item: any) => item?.status === "draft")
+              .length > 0 && (
+              <>
+                {loanRequests
+                  ?.filter((item: any) => item?.status === "draft")
+                  .map((loan: any) => {
+                    const loanTypeLabel = loan.loanType
+                      ? loanTypes[loan.loanType as LoanType]?.name
+                      : "Loan";
+                    return (
+                      <Card key={loan.id} className="p-6">
+                        <div className="space-y-4">
+                          <div
+                            className="flex items-start justify-between"
+                            onClick={() => {
+                              if (loan?.upfrontPaymentStatus === "Confirmed") {
+                                setLoanData(loan);
+                                setIsDialogOpen(true);
+                              }
+                            }}
+                          >
+                            <div className="flex gap-3">
+                              <div className="bg-green-100 p-2 rounded-full h-fit">
+                                <CheckCircle2 className="h-5 w-5 text-green-600" />
+                              </div>
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <h4>Loan Type:</h4>
+                                  {loan.loanType && (
+                                    <Badge
+                                      variant="outline"
+                                      className="text-xs"
+                                    >
+                                      {loanTypeLabel}
+                                    </Badge>
+                                  )}
+                                </div>
+                                <p className="text-sm text-gray-600">
+                                  Upfront Paid:{" "}
+                                  {formatCurrency(loan.upfrontCost)}
+                                </p>
+                                <p className="text-xs text-gray-500">
+                                  Paid on:{" "}
+                                  {loan.createdAt
+                                    ? new Date(
+                                        loan.createdAt
+                                      ).toLocaleDateString()
+                                    : ""}
+                                </p>
+                              </div>
+                            </div>
+                            <Badge className="bg-gray-100 text-gray-700">
+                              {loan?.upfrontPaymentStatus === "pending"
+                                ? "Pending Confirmation"
+                                : loan?.upfrontPaymentStatus === "completed"
+                                ? "Confirmed"
+                                : "Draft"}
+                            </Badge>
+                          </div>
+                        </div>
+                      </Card>
+                    );
+                  })}
+              </>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* Loan History */}
       {loanHistory.length > 0 && (
         <div className="space-y-4">
           <h3>Loan History</h3>
@@ -2383,6 +2592,12 @@ export function LoanSection() {
           window.dispatchEvent(new Event("balanceUpdated"));
           setSelectedLoanId(null);
         }}
+        loanData={loanData}
+        setLoanData={setLoanData}
+        handleApplyLoan={handleApplyLoan}
+        resetStates={resetStates}
+        setError={setError}
+        fetchLoanData={fetchLoanData}
       />
 
       {/* Loan Terms and Conditions Dialog */}
@@ -2606,6 +2821,7 @@ export function LoanSection() {
                       onChange={(e) =>
                         handleLoanAmountInputChange(e.target.value)
                       }
+                      disabled
                       className="pl-8 h-9 text-sm"
                       placeholder={currentLoanConfig.minAmount.toString()}
                       min={currentLoanConfig.minAmount}
@@ -2635,7 +2851,16 @@ export function LoanSection() {
                   <Label htmlFor="period" className="text-sm">
                     Repayment Period
                   </Label>
-                  <Select value={loanPeriod} onValueChange={setLoanPeriod}>
+                  <Select
+                    value={loanPeriod}
+                    onValueChange={(e: any) => {
+                      setLoanPeriod(e);
+                      setLoanData({
+                        ...loanData,
+                        repaymentPeriod: e === "6" ? "6 weeks" : "12 weeks",
+                      });
+                    }}
+                  >
                     <SelectTrigger id="period" className="h-9 text-sm">
                       <SelectValue />
                     </SelectTrigger>
@@ -2654,7 +2879,13 @@ export function LoanSection() {
                     id="purpose"
                     placeholder="e.g., Business expansion, Equipment purchase"
                     value={loanPurpose}
-                    onChange={(e) => setLoanPurpose(e.target.value)}
+                    onChange={(e) => {
+                      setLoanPurpose(e.target.value);
+                      setLoanData({
+                        ...loanData,
+                        loanPurpose: e.target.value,
+                      });
+                    }}
                     className="h-9 text-sm"
                     required
                   />
@@ -2799,7 +3030,16 @@ export function LoanSection() {
                     id="guarantorName"
                     placeholder="Guarantor's full name"
                     value={guarantorName}
-                    onChange={(e) => setGuarantorName(e.target.value)}
+                    onChange={(e) => {
+                      setGuarantorName(e.target.value);
+                      setLoanData({
+                        ...loanData,
+                        gurantorInformation: {
+                          ...loanData?.gurantorInformation,
+                          gFullName: e.target.value,
+                        },
+                      });
+                    }}
                     disabled={isGuarantorRegistered}
                     className={
                       isGuarantorRegistered
@@ -2820,7 +3060,16 @@ export function LoanSection() {
                       id="guarantorPhone"
                       placeholder="08012345678"
                       value={guarantorPhone}
-                      onChange={(e) => setGuarantorPhone(e.target.value)}
+                      onChange={(e) => {
+                        setGuarantorPhone(e.target.value);
+                        setLoanData({
+                          ...loanData,
+                          gurantorInformation: {
+                            ...loanData?.gurantorInformation,
+                            gPhone: e.target.value,
+                          },
+                        });
+                      }}
                       className={
                         isGuarantorRegistered
                           ? "pl-9 bg-gray-100 h-9 text-sm"
@@ -2838,7 +3087,16 @@ export function LoanSection() {
                   </Label>
                   <Select
                     value={guarantorRelationship}
-                    onValueChange={setGuarantorRelationship}
+                    onValueChange={(value: string) => {
+                      setGuarantorRelationship(value);
+                      setLoanData({
+                        ...loanData,
+                        gurantorInformation: {
+                          ...loanData?.gurantorInformation,
+                          gRelationship: value,
+                        },
+                      });
+                    }}
                   >
                     <SelectTrigger
                       id="guarantorRelationship"
@@ -2869,7 +3127,16 @@ export function LoanSection() {
                       id="guarantorAddress"
                       placeholder="Guarantor's address"
                       value={guarantorAddress}
-                      onChange={(e) => setGuarantorAddress(e.target.value)}
+                      onChange={(e) => {
+                        setGuarantorAddress(e.target.value);
+                        setLoanData({
+                          ...loanData,
+                          gurantorInformation: {
+                            ...loanData?.gurantorInformation,
+                            gAddress: e.target.value,
+                          },
+                        });
+                      }}
                       className={
                         isGuarantorRegistered
                           ? "pl-9 bg-gray-100 h-9 text-sm"
@@ -2891,7 +3158,16 @@ export function LoanSection() {
                       id="guarantorEmployer"
                       placeholder="Guarantor's employer"
                       value={guarantorEmployer}
-                      onChange={(e) => setGuarantorEmployer(e.target.value)}
+                      onChange={(e) => {
+                        setGuarantorEmployer(e.target.value);
+                        setLoanData({
+                          ...loanData,
+                          gurantorInformation: {
+                            ...loanData?.gurantorInformation,
+                            gEmployer: e.target.value,
+                          },
+                        });
+                      }}
                       className={
                         isGuarantorRegistered
                           ? "pl-9 bg-gray-100 h-9 text-sm"
@@ -3013,11 +3289,13 @@ export function LoanSection() {
                         {/* Option 2: Pay via Bank Transfer */}
                         <Button
                           type="button"
-                          onClick={() => setUpfrontPaymentDialogOpen(true)}
+                          onClick={() => {
+                            setUpfrontPaymentDialogOpen(true);
+                          }}
                           className="w-full bg-blue-600 hover:bg-blue-700 h-8 text-xs"
                           variant="default"
                         >
-                          <DollarSignIcon className="h-3.5 w-3.5 mr-1.5" />
+                          {/* <DollarSignIcon className="h-3.5 w-3.5 mr-1.5" /> */}
                           {canPayFromContributions ? "Or Pay" : "Pay"} via Bank
                           ({formatCurrency(upfrontCosts.totalUpfront)})
                         </Button>
@@ -3186,6 +3464,39 @@ export function LoanSection() {
           amount={upfrontCosts.totalUpfront}
           purpose={`Upfront Payment - ${currentLoanConfig.name}`}
           onPaymentComplete={handleUpfrontPaymentInDialog}
+          paymentMethods={[
+            // {
+            //   id: "1",
+            //   type: "bank",
+            //   name: "GTBank Account",
+            //   bankName: "Guaranty Trust Bank",
+            //   last4: "3482",
+            //   isDefault: true,
+            //   bvnVerified: true,
+            // },
+            {
+              id: "2",
+              type: "card",
+              name: "Mastercard",
+              cardBrand: "Mastercard",
+              last4: "1290",
+              isDefault: false,
+              bvnVerified: false,
+            },
+            {
+              id: "1",
+              type: "bank",
+              name: "OPay Wallet",
+              bankName: "OPay",
+              last4: "8945",
+              isDefault: false,
+              bvnVerified: true, // optional — set true if verified
+            },
+          ]}
+          loanData={loanData}
+          setLoanData={setLoanData}
+          handleApplyLoan={handleApplyLoan}
+          fetchLoanData={fetchLoanData}
         />
       </DialogContent>
     );

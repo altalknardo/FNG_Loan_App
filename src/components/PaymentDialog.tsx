@@ -1,5 +1,11 @@
 import { useState, useEffect } from "react";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "./ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "./ui/dialog";
 import { ScrollArea } from "./ui/scroll-area";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
@@ -7,7 +13,17 @@ import { Badge } from "./ui/badge";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { RadioGroup, RadioGroupItem } from "./ui/radio-group";
-import { Building2, CreditCard, Copy, CheckCircle2, AlertCircle, Shield, Zap, Wallet } from "lucide-react";
+import {
+  Building2,
+  CreditCard,
+  Copy,
+  CheckCircle2,
+  AlertCircle,
+  Shield,
+  Zap,
+  Wallet,
+  Clock,
+} from "lucide-react";
 import { toast } from "sonner@2.0.3";
 import {
   initializePaystackPayment,
@@ -26,9 +42,10 @@ import {
   updateBalanceAfterOpayPayment,
   type OpayTransaction,
 } from "../lib/opay-service";
+import { ApiError, upfrontTransfer } from "../lib/loan-api";
 
 interface PaymentMethod {
-  id: number;
+  id: string;
   type: "card" | "bank";
   name: string;
   last4: string;
@@ -46,16 +63,21 @@ interface PaymentDialogProps {
   onPaymentSuccess?: (amount: number, paymentMethod: PaymentMethod) => void;
   paymentMethods?: PaymentMethod[];
   onAddPaymentMethod?: () => void;
-  
+  setLoanData?: React.Dispatch<React.SetStateAction<any>>;
+  setError?: React.Dispatch<React.SetStateAction<any>>;
+  loanData?: any;
+  handleApplyLoan?: (type: string) => void;
+  resetStates?: () => void;
+  fetchLoanData?: () => void;
   // Old interface (for backward compatibility)
   isOpen?: boolean;
   onClose?: () => void;
   purpose?: string;
   onPaymentComplete?: (amount: number, method: PaymentMethod) => void;
-  
+
   // Common
   amount: number;
-  
+
   // Payment context
   paymentType?: "contribution" | "loan_repayment";
   loanId?: string;
@@ -84,33 +106,45 @@ export function PaymentDialog(props: PaymentDialogProps) {
     loanId,
     userEmail,
   } = props;
-  
+
   // Use old or new props
   const open = openProp ?? isOpen ?? false;
-  const onOpenChange = onOpenChangeProp ?? ((open: boolean) => !open && onClose?.());
-  const onPaymentSuccess = onPaymentSuccessProp ?? onPaymentComplete ?? (() => {});
-  
+  const onOpenChange =
+    onOpenChangeProp ?? ((open: boolean) => !open && onClose?.());
+  const onPaymentSuccess =
+    onPaymentSuccessProp ?? onPaymentComplete ?? (() => {});
+
   // Load payment methods from localStorage if not provided
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>(() => {
     if (paymentMethodsProp) return paymentMethodsProp;
     const saved = localStorage.getItem("paymentMethods");
     return saved ? JSON.parse(saved) : [];
   });
-  const [step, setStep] = useState<"select" | "gateway" | "transfer" | "confirm" | "processing">("select");
-  const [selectedMethod, setSelectedMethod] = useState<PaymentMethod | null>(null);
-  const [selectedGateway, setSelectedGateway] = useState<"paystack" | "opay" | null>(null);
+  const [step, setStep] = useState<
+    "select" | "gateway" | "transfer" | "confirm" | "processing"
+  >("transfer");
+  const [selectedMethod, setSelectedMethod] = useState<PaymentMethod | null>(
+    null
+  );
+  const [selectedGateway, setSelectedGateway] = useState<
+    "paystack" | "opay" | null
+  >(null);
   const [confirmationCode, setConfirmationCode] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
-  const [paymentMode, setPaymentMode] = useState<"instant" | "bank_transfer">("instant");
+  const [paymentMode, setPaymentMode] = useState<"instant" | "bank_transfer">(
+    "instant"
+  );
 
   // Load company account from localStorage
   const [companyAccount, setCompanyAccount] = useState<CompanyAccount>(() => {
     const saved = localStorage.getItem("companyAccount");
-    return saved ? JSON.parse(saved) : {
-      bankName: "First Bank of Nigeria",
-      accountNumber: "0123456789",
-      accountName: "FNG FINANCIAL SERVICES",
-    };
+    return saved
+      ? JSON.parse(saved)
+      : {
+          bankName: "First Bank of Nigeria",
+          accountNumber: "0123456789",
+          accountName: "FNG FINANCIAL SERVICES",
+        };
   });
 
   // Listen for payment methods updates if not provided via props
@@ -147,7 +181,8 @@ export function PaymentDialog(props: PaymentDialogProps) {
   // Auto-select default payment method when dialog opens
   useEffect(() => {
     if (open && paymentMethods.length > 0 && !selectedMethod) {
-      const defaultMethod = paymentMethods.find(pm => pm.isDefault) || paymentMethods[0];
+      const defaultMethod =
+        paymentMethods.find((pm) => pm.isDefault) || paymentMethods[0];
       setSelectedMethod(defaultMethod);
     }
   }, [open, paymentMethods]);
@@ -160,7 +195,7 @@ export function PaymentDialog(props: PaymentDialogProps) {
   const handleSelectGateway = (gateway: "paystack" | "opay") => {
     setSelectedGateway(gateway);
     setStep("processing");
-    
+
     if (gateway === "paystack") {
       handlePaystackPayment();
     } else {
@@ -169,7 +204,8 @@ export function PaymentDialog(props: PaymentDialogProps) {
   };
 
   const handlePayNow = () => {
-    if (!selectedMethod || !userEmail) {
+    // if (!selectedMethod || !userEmail) {
+    if (!selectedMethod) {
       toast.error("Missing required information");
       return;
     }
@@ -205,16 +241,23 @@ export function PaymentDialog(props: PaymentDialogProps) {
               {
                 display_name: "Payment Type",
                 variable_name: "payment_type",
-                value: paymentType === "contribution" ? "Daily Contribution" : "Loan Repayment",
+                value:
+                  paymentType === "contribution"
+                    ? "Daily Contribution"
+                    : "Loan Repayment",
               },
-              ...(loanId ? [{
-                display_name: "Loan ID",
-                variable_name: "loan_id",
-                value: loanId,
-              }] : []),
+              ...(loanId
+                ? [
+                    {
+                      display_name: "Loan ID",
+                      variable_name: "loan_id",
+                      value: loanId,
+                    },
+                  ]
+                : []),
             ],
           },
-          channels: ['card', 'bank', 'ussd', 'bank_transfer'],
+          channels: ["card", "bank", "ussd", "bank_transfer"],
         },
         (transaction: PaystackTransaction) => {
           // Payment successful
@@ -235,7 +278,10 @@ export function PaymentDialog(props: PaymentDialogProps) {
     }
   };
 
-  const handlePaystackSuccess = (transaction: PaystackTransaction, reference: string) => {
+  const handlePaystackSuccess = (
+    transaction: PaystackTransaction,
+    reference: string
+  ) => {
     // Simulate payment verification (in production, this should be done on backend)
     const verification = simulatePaymentVerification(
       reference,
@@ -253,7 +299,9 @@ export function PaymentDialog(props: PaymentDialogProps) {
         amount,
         paymentType,
         reference,
-        `${selectedMethod?.bankName || selectedMethod?.cardBrand} ••••${selectedMethod?.last4}`,
+        `${selectedMethod?.bankName || selectedMethod?.cardBrand} ••••${
+          selectedMethod?.last4
+        }`,
         loanId
       );
 
@@ -267,7 +315,9 @@ export function PaymentDialog(props: PaymentDialogProps) {
         onPaymentSuccess(amount, selectedMethod);
       }
 
-      toast.success("Payment successful! Your balance has been updated in real-time.");
+      toast.success(
+        "Payment successful! Your balance has been updated in real-time."
+      );
     } else {
       setIsProcessing(false);
       setStep("select");
@@ -321,7 +371,10 @@ export function PaymentDialog(props: PaymentDialogProps) {
     }
   };
 
-  const handleOpaySuccess = (transaction: OpayTransaction, reference: string) => {
+  const handleOpaySuccess = (
+    transaction: OpayTransaction,
+    reference: string
+  ) => {
     // Simulate payment verification (in production, this should be done on backend)
     const verification = simulateOpayVerification(
       reference,
@@ -329,7 +382,10 @@ export function PaymentDialog(props: PaymentDialogProps) {
       amount
     );
 
-    if (verification.code === "00000" && verification.data.status === "SUCCESS") {
+    if (
+      verification.code === "00000" &&
+      verification.data.status === "SUCCESS"
+    ) {
       // Update user balance
       updateBalanceAfterOpayPayment(paymentType, amount, loanId);
 
@@ -353,7 +409,9 @@ export function PaymentDialog(props: PaymentDialogProps) {
         onPaymentSuccess(amount, selectedMethod);
       }
 
-      toast.success("OPay payment successful! Your balance has been updated in real-time.");
+      toast.success(
+        "OPay payment successful! Your balance has been updated in real-time."
+      );
     } else {
       setIsProcessing(false);
       setStep("gateway");
@@ -380,6 +438,105 @@ export function PaymentDialog(props: PaymentDialogProps) {
     setConfirmationCode(mockCode);
   };
 
+  const handleCompleteManualTransfer = async () => {
+    if (!confirmationCode) {
+      toast.error("Please enter or generate the transaction reference code.");
+      return;
+    }
+    if (props?.loanData?.file == null) {
+      toast.error("Please upload your transfer receipt/proof.");
+      return;
+    }
+    setIsProcessing(true);
+    // Simulate processing delay
+    // props.handleApplyLoan?.("upfront");
+
+    try {
+      // Call API to login
+      const formData = new FormData();
+
+      Object.entries(props?.loanData).forEach(([key, value]) => {
+        if (value instanceof Blob) {
+          // File fields
+          formData.append(key, value);
+        } else if (typeof value === "object" && value !== null) {
+          // Nested objects — stringify them
+          formData.append(key, JSON.stringify(value));
+        } else {
+          // Strings, numbers, booleans, null, undefined
+          formData.append(key, String(value ?? ""));
+        }
+      });
+
+      const response = await upfrontTransfer(formData);
+
+      // if (response.success && response.data) {
+      if (response.message) {
+        // Check if KYC is completed
+        // Note: We allow login but will redirect to KYC form in App.tsx
+        // This allows user to be authenticated and see the KYC form
+        // setIsLoading(false);
+        toast.success("Upfront Confirmation Request Successfully!");
+        props?.fetchLoanData?.();
+        // onLogin(userData || {});
+        // Reset form
+        setIsProcessing(false);
+        setConfirmationCode("");
+        setStep("confirm");
+
+        props?.resetStates?.();
+      } else {
+        props?.setError?.(
+          response.message || "An error occurred during upfront payment."
+        );
+        // setIsLoading(false);
+      }
+    } catch (error: any) {
+      // Handle API errors
+      const apiError = error as ApiError;
+
+      // Check for field-specific errors
+
+      if (apiError.errors && Object.keys(apiError.errors).length > 0) {
+        const firstError = Object.values(apiError.errors)[0][0];
+        props?.setError?.(firstError || apiError.message);
+        toast.error(firstError || "An error occurred during upfront payment.");
+      } else {
+        props?.setError?.(
+          apiError.message ||
+            "An unexpected error occurred during upfront payment."
+        );
+        toast.error(
+          apiError.message ||
+            "An unexpected error occurred during upfront payment."
+        );
+      }
+
+      // setIsLoading(false);
+
+      // Fallback to localStorage for demo/admin users if API fails
+      if (
+        apiError.status === 404 ||
+        apiError.status === 500 ||
+        !apiError.status
+      ) {
+        console.warn("API error occurred, falling back to localStorage");
+        // handleLocalStorageFallback();
+      }
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const generateReferenceCode = () => {
+    const mockCode = Math.random().toString(36).substring(2, 10).toUpperCase();
+    setConfirmationCode(mockCode);
+    props.setLoanData?.({
+      ...props.loanData,
+      refNo: mockCode,
+    });
+  };
+
   const handleCompletePayment = () => {
     if (!selectedMethod) return;
 
@@ -389,7 +546,7 @@ export function PaymentDialog(props: PaymentDialogProps) {
     setTimeout(() => {
       onPaymentSuccess(amount, selectedMethod);
       toast.success("Payment successful! Your balance has been updated.");
-      
+
       // Reset dialog
       setStep("select");
       setSelectedMethod(null);
@@ -427,58 +584,80 @@ export function PaymentDialog(props: PaymentDialogProps) {
         </DialogHeader>
 
         <ScrollArea className="max-h-[calc(95vh-100px)] sm:max-h-[calc(90vh-120px)]">
-        <div className="space-y-2 sm:space-y-3 pr-2 sm:pr-4">
-          {/* Amount Display - More Compact */}
-          <Card className="p-2 sm:p-3 bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-200">
-            <div className="flex items-center justify-between">
-              <p className="text-[11px] sm:text-xs text-blue-700">Amount to Pay</p>
-              <p className="text-xl sm:text-2xl text-blue-900">₦{amount.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-            </div>
-          </Card>
+          <div className="space-y-2 sm:space-y-3 pr-2 sm:pr-4">
+            {/* Amount Display - More Compact */}
+            <Card className="p-2 sm:p-3 bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-200">
+              <div className="flex items-center justify-between">
+                <p className="text-[11px] sm:text-xs text-blue-700">
+                  Amount to Pay
+                </p>
+                <p className="text-xl sm:text-2xl text-blue-900">
+                  ₦
+                  {amount.toLocaleString("en-NG", {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}
+                </p>
+              </div>
+            </Card>
 
-          {/* Step 1: Select Payment Method - Compact */}
-          {step === "select" && (
-            <div className="space-y-1.5 sm:space-y-2">
+            {/* Step 1: Select Payment Method - Compact */}
+            {step === "select" && (
+              <div className="space-y-1.5 sm:space-y-2">
                 {paymentMethods.length === 0 ? (
                   <Card className="p-2 sm:p-3 text-center">
                     <AlertCircle className="h-4 w-4 sm:h-5 sm:w-5 text-orange-500 mx-auto mb-1.5" />
                     <p className="text-[11px] sm:text-xs text-gray-600 mb-2">
-                      No payment methods available. Please add a payment method first.
+                      No payment methods available. Please add a payment method
+                      first.
                     </p>
                     <div className="flex gap-2 justify-center">
                       {onAddPaymentMethod && (
-                        <Button onClick={() => {
-                          handleCancel();
-                          onAddPaymentMethod();
-                        }} size="sm" className="h-7 sm:h-8 text-[11px] sm:text-xs">
+                        <Button
+                          onClick={() => {
+                            handleCancel();
+                            onAddPaymentMethod();
+                          }}
+                          size="sm"
+                          className="h-7 sm:h-8 text-[11px] sm:text-xs"
+                        >
                           Add Payment Method
                         </Button>
                       )}
-                      <Button variant="outline" onClick={handleCancel} size="sm" className="h-7 sm:h-8 text-[11px] sm:text-xs">
+                      <Button
+                        variant="outline"
+                        onClick={handleCancel}
+                        size="sm"
+                        className="h-7 sm:h-8 text-[11px] sm:text-xs"
+                      >
                         Close
                       </Button>
                     </div>
                   </Card>
                 ) : (
                   <>
-                    <Label className="text-xs sm:text-sm">Payment Method</Label>
+                    {/* <Label className="text-xs sm:text-sm">Payment Method</Label>
                     {selectedMethod && (
                       <p className="text-[11px] sm:text-xs text-gray-500">
                         Default method pre-selected
                       </p>
-                    )}
-                    {paymentMethods.map((method) => (
+                    )} */}
+                    {/* {paymentMethods.map((method) => (
                       <Card
                         key={method.id}
                         className={`p-2 sm:p-2.5 cursor-pointer hover:shadow-md transition-all ${
-                          selectedMethod?.id === method.id ? "border-2 border-blue-600 bg-blue-50" : "hover:border-blue-200"
+                          selectedMethod?.id === method.id
+                            ? "border-2 border-blue-600 bg-blue-50"
+                            : "hover:border-blue-200"
                         }`}
                         onClick={() => handleSelectMethod(method)}
                       >
                         <div className="flex items-center gap-2 sm:gap-2.5">
                           <div
                             className={`p-1.5 sm:p-2 rounded-full ${
-                              method.type === "bank" ? "bg-blue-100" : "bg-purple-100"
+                              method.type === "bank"
+                                ? "bg-blue-100"
+                                : "bg-purple-100"
                             }`}
                           >
                             {method.type === "bank" ? (
@@ -489,7 +668,9 @@ export function PaymentDialog(props: PaymentDialogProps) {
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-1 sm:gap-1.5 flex-wrap">
-                              <p className="text-xs sm:text-sm truncate">{method.name}</p>
+                              <p className="text-xs sm:text-sm truncate">
+                                {method.name}
+                              </p>
                               {method.isDefault && (
                                 <Badge className="bg-green-100 text-green-700 border-green-200 text-[9px] sm:text-[10px] px-1 sm:px-1.5 py-0">
                                   Default
@@ -503,33 +684,37 @@ export function PaymentDialog(props: PaymentDialogProps) {
                               )}
                             </div>
                             <p className="text-[11px] sm:text-xs text-gray-600 truncate">
-                              {method.type === "bank" ? method.bankName : method.cardBrand} •••• {method.last4}
+                              {method.type === "bank"
+                                ? method.bankName
+                                : method.cardBrand}{" "}
+                              •••• {method.last4}
                             </p>
                           </div>
                         </div>
                       </Card>
-                    ))}
-                    
+                    ))} */}
+
                     {selectedMethod && (
                       <div className="pt-0.5 sm:pt-1 space-y-1.5 sm:space-y-2">
-                        <Card className="p-1.5 sm:p-2 bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
+                        {/* <Card className="p-1.5 sm:p-2 bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
                           <div className="flex items-start gap-1 sm:gap-1.5">
                             <Zap className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-blue-600 mt-0.5 flex-shrink-0" />
                             <p className="text-[10px] sm:text-[11px] text-blue-700">
-                              Instant payment available! Pay with card, bank, or USSD.
+                              Instant payment available! Pay with card, bank, or
+                              USSD.
                             </p>
                           </div>
-                        </Card>
+                        </Card> */}
 
                         <div className="grid grid-cols-1 gap-1.5">
-                          <Button
+                          {/* <Button
                             onClick={handlePayNow}
                             className="w-full h-8 sm:h-9 text-xs sm:text-sm bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
-                            disabled={!userEmail}
+                            // disabled={!userEmail}
                           >
                             <Zap className="h-3 w-3 sm:h-3.5 sm:w-3.5 mr-1.5" />
                             Pay Now (Instant)
-                          </Button>
+                          </Button> */}
                           <Button
                             onClick={handleBankTransfer}
                             variant="outline"
@@ -543,23 +728,33 @@ export function PaymentDialog(props: PaymentDialogProps) {
                     )}
                   </>
                 )}
-            </div>
-          )}
+              </div>
+            )}
 
-          {/* Step 2: Show Company Account Details */}
-          {step === "transfer" && selectedMethod && (
-            <div className="space-y-2 sm:space-y-4">
+            {/* Step 2: Show Company Account Details */}
+            {step === "transfer" && selectedMethod && (
+              <div className="space-y-2 sm:space-y-4">
                 <div className="space-y-1.5 sm:space-y-2">
-                  <Label className="text-xs sm:text-sm">Transfer to Company Account</Label>
+                  <Label className="text-xs sm:text-sm">
+                    Transfer to Company Account
+                  </Label>
                   <Card className="p-2.5 sm:p-4 space-y-2 sm:space-y-3 bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-200">
                     <div className="flex justify-between items-center">
-                      <span className="text-xs sm:text-sm text-gray-600">Bank:</span>
-                      <span className="text-xs sm:text-sm font-semibold">{companyAccount.bankName}</span>
+                      <span className="text-xs sm:text-sm text-gray-600">
+                        Bank:
+                      </span>
+                      <span className="text-xs sm:text-sm font-semibold">
+                        {companyAccount.bankName}
+                      </span>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="text-xs sm:text-sm text-gray-600">Account:</span>
+                      <span className="text-xs sm:text-sm text-gray-600">
+                        Account:
+                      </span>
                       <div className="flex items-center gap-1.5 sm:gap-2">
-                        <span className="text-sm sm:text-lg font-bold tracking-wider">{companyAccount.accountNumber}</span>
+                        <span className="text-sm sm:text-lg font-bold tracking-wider">
+                          {companyAccount.accountNumber}
+                        </span>
                         <Button
                           variant="ghost"
                           size="sm"
@@ -571,8 +766,12 @@ export function PaymentDialog(props: PaymentDialogProps) {
                       </div>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="text-xs sm:text-sm text-gray-600">Name:</span>
-                      <span className="text-xs sm:text-sm font-semibold text-right">{companyAccount.accountName}</span>
+                      <span className="text-xs sm:text-sm text-gray-600">
+                        Name:
+                      </span>
+                      <span className="text-xs sm:text-sm font-semibold text-right">
+                        {companyAccount.accountName}
+                      </span>
                     </div>
                   </Card>
                 </div>
@@ -583,245 +782,437 @@ export function PaymentDialog(props: PaymentDialogProps) {
                     <div className="text-xs sm:text-sm text-orange-700">
                       <p className="font-semibold mb-1 sm:mb-2">Important:</p>
                       <ul className="list-disc list-inside space-y-0.5 sm:space-y-1 text-[11px] sm:text-xs">
-                        <li>Transfer ₦{amount.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</li>
-                        <li>From: {selectedMethod.bankName} ••••{selectedMethod.last4}</li>
+                        <li>
+                          Transfer ₦
+                          {amount.toLocaleString("en-NG", {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}
+                        </li>
+                        {/* <li>
+                          From: {selectedMethod.bankName} ••••
+                          {selectedMethod.last4}
+                        </li> */}
                         <li>Save receipt</li>
                       </ul>
                     </div>
                   </div>
                 </Card>
+                <div>
+                  <Label className="text-xs sm:text-sm">Transfer Details</Label>
+                  <div className="flex items-center sm:flex-row gap-1.5 sm:gap-2 pt-1 sm:pt-2">
+                    <div className="w-full">
+                      <Label className="text-[11px] sm:text-xs">
+                        Transaction Reference
+                      </Label>
+                      <div className="flex items-center sm:flex-row gap-1.5 sm:gap-2 pt-1 sm:pt-2 w-full">
+                        <Input
+                          value={confirmationCode}
+                          className="text-center w-full font-mono text-xs sm:text-sm h-8 sm:h-10 pt-2"
+                          onChange={(e) => {
+                            setConfirmationCode(e.target.value.toUpperCase());
+                            props.setLoanData?.({
+                              ...props.loanData,
+                              refNo: e.target.value.toUpperCase(),
+                            });
+                          }}
+                        />
+                        <Button
+                          onClick={generateReferenceCode}
+                          className="flex-1 h-8 sm:h-10 text-xs sm:text-sm"
+                        >
+                          Generate
+                        </Button>
+                      </div>
+                      <p className="text-[9px] sm:text-[10px] text-gray-500 p-2">
+                        Save this reference for your records
+                      </p>
+                    </div>
+                  </div>
+                  {/* File Upload Section */}
+                  <div className="pt-3 sm:pt-4">
+                    <Label className="text-[11px] sm:text-xs">
+                      Upload Receipt/Proof
+                    </Label>
+                    <div className="pt-1 sm:pt-2">
+                      <div className="relative border-2 border-dashed border-gray-300 rounded-lg p-4 sm:p-6 hover:border-gray-400 transition-colors">
+                        <input
+                          type="file"
+                          accept="image/*,.pdf"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                props.setLoanData?.({
+                                  ...props.loanData,
+                                  file: file,
+                                });
+                              }
+                            }
+                          }}
+                          className="absolute hidden inset-0 w-full h-full opacity-0 cursor-pointer"
+                          id="file-upload"
+                        />
+                        <div className="text-center">
+                          <svg
+                            className="mx-auto h-8 w-8 sm:h-10 sm:w-10 text-gray-400"
+                            stroke="currentColor"
+                            fill="none"
+                            viewBox="0 0 48 48"
+                            aria-hidden="true"
+                          >
+                            <path
+                              d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02"
+                              strokeWidth={2}
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
+                          </svg>
+                          <div className="mt-2 sm:mt-3">
+                            <label
+                              htmlFor="file-upload"
+                              className="cursor-pointer text-xs sm:text-sm font-medium text-blue-600 hover:text-blue-500"
+                            >
+                              Click to upload
+                            </label>
+                            <span className="text-xs sm:text-sm text-gray-500">
+                              {" "}
+                              or drag and drop
+                            </span>
+                          </div>
+                          <p className="text-[10px] sm:text-xs text-gray-500 mt-1">
+                            PNG, JPG or PDF (max. 10MB)
+                          </p>
+                        </div>
+                      </div>
+                      {/* // Show selected file below: */}
+                      {props?.loanData && (
+                        <p className="text-xs text-gray-700 mt-2">
+                          Selected: {props?.loanData?.file?.name}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
 
-                <div className="space-y-1.5 sm:space-y-2">
-                  <Label className="text-xs sm:text-sm">Your Payment Source</Label>
+                {/* <div className="space-y-1.5 sm:space-y-2">
+                  <Label className="text-xs sm:text-sm">
+                    Your Payment Source
+                  </Label>
                   <Card className="p-2.5 sm:p-4">
                     <div className="flex items-center gap-2 sm:gap-3">
                       <div className="bg-blue-100 p-2 sm:p-3 rounded-full">
                         <Building2 className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600" />
                       </div>
                       <div>
-                        <p className="text-xs sm:text-sm font-semibold">{selectedMethod.name}</p>
+                        <p className="text-xs sm:text-sm font-semibold">
+                          {selectedMethod.name}
+                        </p>
                         <p className="text-[11px] sm:text-sm text-gray-600">
                           {selectedMethod.bankName} •••• {selectedMethod.last4}
                         </p>
                       </div>
                     </div>
                   </Card>
-                </div>
+                </div> */}
 
                 <div className="flex flex-col-reverse sm:flex-row gap-1.5 sm:gap-2 pt-1 sm:pt-2">
-                  <Button variant="outline" onClick={handleCancel} className="flex-1 h-8 sm:h-10 text-xs sm:text-sm">
+                  <Button
+                    variant="outline"
+                    onClick={handleCancel}
+                    className="flex-1 h-8 sm:h-10 text-xs sm:text-sm"
+                  >
                     Cancel
                   </Button>
-                  <Button onClick={handleConfirmTransfer} className="flex-1 h-8 sm:h-10 text-xs sm:text-sm">
-                    I've Completed Transfer
+
+                  <Button
+                    // onClick={handleConfirmTransfer}
+                    onClick={handleCompleteManualTransfer}
+                    className="flex-1 h-8 sm:h-10 text-xs sm:text-sm"
+                  >
+                    {isProcessing ? (
+                      <>
+                        <div className="h-3 w-3 sm:h-3.5 sm:w-3.5 border-2 border-white border-t-transparent rounded-full animate-spin mr-1.5" />
+                        Processing...
+                      </>
+                    ) : (
+                      "I've Completed Transfer"
+                    )}
                   </Button>
                 </div>
-            </div>
-          )}
-
-          {/* Step 1.5: Choose Payment Gateway */}
-          {step === "gateway" && (
-            <div className="space-y-2 sm:space-y-4">
-              <Card className="p-2 sm:p-3 bg-blue-50 border-blue-200">
-                <div className="flex items-start gap-1.5 sm:gap-2">
-                  <Zap className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-blue-600 mt-0.5 flex-shrink-0" />
-                  <div>
-                    <p className="text-[11px] sm:text-xs font-medium text-blue-900 mb-0.5 sm:mb-1">
-                      Choose Your Preferred Payment Gateway
-                    </p>
-                    <p className="text-[10px] sm:text-xs text-blue-700">
-                      Both gateways are secure and instant. Choose the one you prefer!
-                    </p>
-                  </div>
-                </div>
-              </Card>
-
-              <div className="space-y-2 sm:space-y-3">
-                <Label className="text-xs sm:text-sm">Select Payment Gateway</Label>
-                
-                {/* OPay Option - Highlighted as Popular */}
-                <Card
-                  className={`p-2.5 sm:p-4 cursor-pointer hover:shadow-md transition-all border-2 ${
-                    selectedGateway === "opay" 
-                      ? "border-green-500 bg-green-50" 
-                      : "border-gray-200 hover:border-green-300"
-                  }`}
-                  onClick={() => handleSelectGateway("opay")}
-                >
-                  <div className="flex items-start gap-2 sm:gap-3">
-                    <div className="bg-green-100 p-2 sm:p-3 rounded-full">
-                      <Wallet className="h-4 w-4 sm:h-6 sm:w-6 text-green-600" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1 sm:gap-2 flex-wrap mb-0.5 sm:mb-1">
-                        <h4 className="text-sm sm:text-base font-semibold text-green-900">OPay</h4>
-                        <Badge className="bg-green-100 text-green-700 border-green-300 text-[9px] sm:text-xs px-1.5 sm:px-2 py-0.5">
-                          Popular
-                        </Badge>
-                      </div>
-                      <p className="text-[11px] sm:text-sm text-gray-600 mb-1 sm:mb-2">
-                        Pay with OPay Wallet, Cards, or Bank
-                      </p>
-                      <div className="flex flex-wrap gap-1">
-                        <span className="text-[10px] sm:text-xs bg-green-50 text-green-700 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded">Wallet</span>
-                        <span className="text-[10px] sm:text-xs bg-green-50 text-green-700 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded">Card</span>
-                        <span className="text-[10px] sm:text-xs bg-green-50 text-green-700 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded">Transfer</span>
-                        <span className="text-[10px] sm:text-xs bg-green-50 text-green-700 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded">USSD</span>
-                      </div>
-                    </div>
-                  </div>
-                </Card>
-
-                {/* Paystack Option */}
-                <Card
-                  className={`p-2.5 sm:p-4 cursor-pointer hover:shadow-md transition-all border-2 ${
-                    selectedGateway === "paystack" 
-                      ? "border-blue-500 bg-blue-50" 
-                      : "border-gray-200 hover:border-blue-300"
-                  }`}
-                  onClick={() => handleSelectGateway("paystack")}
-                >
-                  <div className="flex items-start gap-2 sm:gap-3">
-                    <div className="bg-blue-100 p-2 sm:p-3 rounded-full">
-                      <CreditCard className="h-4 w-4 sm:h-6 sm:w-6 text-blue-600" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1 sm:gap-2 flex-wrap mb-0.5 sm:mb-1">
-                        <h4 className="text-sm sm:text-base font-semibold text-blue-900">Paystack</h4>
-                        <Badge variant="outline" className="text-[9px] sm:text-xs px-1.5 sm:px-2 py-0.5">
-                          Trusted
-                        </Badge>
-                      </div>
-                      <p className="text-[11px] sm:text-sm text-gray-600 mb-1 sm:mb-2">
-                        Pay with Cards, Bank Transfer, or USSD
-                      </p>
-                      <div className="flex flex-wrap gap-1">
-                        <span className="text-[10px] sm:text-xs bg-blue-50 text-blue-700 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded">Visa/MC</span>
-                        <span className="text-[10px] sm:text-xs bg-blue-50 text-blue-700 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded">Transfer</span>
-                        <span className="text-[10px] sm:text-xs bg-blue-50 text-blue-700 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded">USSD</span>
-                      </div>
-                    </div>
-                  </div>
-                </Card>
               </div>
+            )}
 
-              <div className="flex gap-1.5 sm:gap-2 pt-1 sm:pt-2">
-                <Button 
-                  variant="outline" 
-                  onClick={() => {
-                    setStep("select");
-                    setSelectedGateway(null);
-                  }} 
-                  className="flex-1 h-8 sm:h-10 text-xs sm:text-sm"
+            {/* Step 1.5: Choose Payment Gateway */}
+            {step === "gateway" && (
+              <div className="space-y-2 sm:space-y-4">
+                <Card className="p-2 sm:p-3 bg-blue-50 border-blue-200">
+                  <div className="flex items-start gap-1.5 sm:gap-2">
+                    <Zap className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <p className="text-[11px] sm:text-xs font-medium text-blue-900 mb-0.5 sm:mb-1">
+                        Choose Your Preferred Payment Gateway
+                      </p>
+                      <p className="text-[10px] sm:text-xs text-blue-700">
+                        Both gateways are secure and instant. Choose the one you
+                        prefer!
+                      </p>
+                    </div>
+                  </div>
+                </Card>
+
+                <div className="space-y-2 sm:space-y-3">
+                  <Label className="text-xs sm:text-sm">
+                    Select Payment Gateway
+                  </Label>
+
+                  {/* OPay Option - Highlighted as Popular */}
+                  <Card
+                    className={`p-2.5 sm:p-4 cursor-pointer hover:shadow-md transition-all border-2 ${
+                      selectedGateway === "opay"
+                        ? "border-green-500 bg-green-50"
+                        : "border-gray-200 hover:border-green-300"
+                    }`}
+                    onClick={() => handleSelectGateway("opay")}
+                  >
+                    <div className="flex items-start gap-2 sm:gap-3">
+                      <div className="bg-green-100 p-2 sm:p-3 rounded-full">
+                        <Wallet className="h-4 w-4 sm:h-6 sm:w-6 text-green-600" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1 sm:gap-2 flex-wrap mb-0.5 sm:mb-1">
+                          <h4 className="text-sm sm:text-base font-semibold text-green-900">
+                            OPay
+                          </h4>
+                          <Badge className="bg-green-100 text-green-700 border-green-300 text-[9px] sm:text-xs px-1.5 sm:px-2 py-0.5">
+                            Popular
+                          </Badge>
+                        </div>
+                        <p className="text-[11px] sm:text-sm text-gray-600 mb-1 sm:mb-2">
+                          Pay with OPay Wallet, Cards, or Bank
+                        </p>
+                        <div className="flex flex-wrap gap-1">
+                          <span className="text-[10px] sm:text-xs bg-green-50 text-green-700 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded">
+                            Wallet
+                          </span>
+                          <span className="text-[10px] sm:text-xs bg-green-50 text-green-700 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded">
+                            Card
+                          </span>
+                          <span className="text-[10px] sm:text-xs bg-green-50 text-green-700 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded">
+                            Transfer
+                          </span>
+                          <span className="text-[10px] sm:text-xs bg-green-50 text-green-700 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded">
+                            USSD
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </Card>
+
+                  {/* Paystack Option */}
+                  {/* <Card
+                    className={`p-2.5 sm:p-4 cursor-pointer hover:shadow-md transition-all border-2 ${
+                      selectedGateway === "paystack"
+                        ? "border-blue-500 bg-blue-50"
+                        : "border-gray-200 hover:border-blue-300"
+                    }`}
+                    onClick={() => handleSelectGateway("paystack")}
+                  >
+                    <div className="flex items-start gap-2 sm:gap-3">
+                      <div className="bg-blue-100 p-2 sm:p-3 rounded-full">
+                        <CreditCard className="h-4 w-4 sm:h-6 sm:w-6 text-blue-600" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1 sm:gap-2 flex-wrap mb-0.5 sm:mb-1">
+                          <h4 className="text-sm sm:text-base font-semibold text-blue-900">
+                            Paystack
+                          </h4>
+                          <Badge
+                            variant="outline"
+                            className="text-[9px] sm:text-xs px-1.5 sm:px-2 py-0.5"
+                          >
+                            Trusted
+                          </Badge>
+                        </div>
+                        <p className="text-[11px] sm:text-sm text-gray-600 mb-1 sm:mb-2">
+                          Pay with Cards, Bank Transfer, or USSD
+                        </p>
+                        <div className="flex flex-wrap gap-1">
+                          <span className="text-[10px] sm:text-xs bg-blue-50 text-blue-700 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded">
+                            Visa/MC
+                          </span>
+                          <span className="text-[10px] sm:text-xs bg-blue-50 text-blue-700 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded">
+                            Transfer
+                          </span>
+                          <span className="text-[10px] sm:text-xs bg-blue-50 text-blue-700 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded">
+                            USSD
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </Card> */}
+                </div>
+
+                <div className="flex gap-1.5 sm:gap-2 pt-1 sm:pt-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setStep("select");
+                      setSelectedGateway(null);
+                    }}
+                    className="flex-1 h-8 sm:h-10 text-xs sm:text-sm"
+                  >
+                    Back
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Processing Step */}
+            {step === "processing" && (
+              <div className="space-y-2 sm:space-y-4">
+                <Card className="p-4 sm:p-8 text-center bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-200">
+                  <div className="flex flex-col items-center justify-center space-y-2 sm:space-y-4">
+                    <div className="relative">
+                      <div className="h-12 w-12 sm:h-16 sm:w-16 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin" />
+                      <Zap className="h-6 w-6 sm:h-8 sm:w-8 text-blue-600 absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2" />
+                    </div>
+                    <div>
+                      <p className="text-sm sm:text-base font-semibold text-blue-900 mb-1 sm:mb-2">
+                        Processing Payment...
+                      </p>
+                      <p className="text-xs sm:text-sm text-blue-700">
+                        {selectedGateway === "opay"
+                          ? "Complete payment in the OPay window"
+                          : "Complete payment in the Paystack popup"}
+                      </p>
+                    </div>
+                  </div>
+                </Card>
+
+                <Card className="p-2 sm:p-4 bg-orange-50 border-orange-200">
+                  <div className="flex gap-2 sm:gap-3">
+                    <AlertCircle className="h-4 w-4 sm:h-5 sm:w-5 text-orange-600 mt-0.5 flex-shrink-0" />
+                    <div className="text-[11px] sm:text-xs text-orange-700">
+                      <p className="font-semibold mb-0.5 sm:mb-1">Important:</p>
+                      <ul className="list-disc list-inside space-y-0.5 sm:space-y-1">
+                        <li>Don't close this window</li>
+                        <li>Complete payment in the popup</li>
+                        <li>Balance updates automatically</li>
+                      </ul>
+                    </div>
+                  </div>
+                </Card>
+
+                <Button
+                  variant="outline"
+                  onClick={handleCancel}
+                  className="w-full h-8 sm:h-10 text-xs sm:text-sm"
                 >
-                  Back
+                  Cancel
                 </Button>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* Processing Step */}
-          {step === "processing" && (
-            <div className="space-y-2 sm:space-y-4">
-              <Card className="p-4 sm:p-8 text-center bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-200">
-                <div className="flex flex-col items-center justify-center space-y-2 sm:space-y-4">
-                  <div className="relative">
-                    <div className="h-12 w-12 sm:h-16 sm:w-16 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin" />
-                    <Zap className="h-6 w-6 sm:h-8 sm:w-8 text-blue-600 absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2" />
-                  </div>
-                  <div>
-                    <p className="text-sm sm:text-base font-semibold text-blue-900 mb-1 sm:mb-2">Processing Payment...</p>
-                    <p className="text-xs sm:text-sm text-blue-700">
-                      {selectedGateway === "opay" 
-                        ? "Complete payment in the OPay window"
-                        : "Complete payment in the Paystack popup"}
-                    </p>
-                  </div>
+            {/* Step 3: Confirm Payment - Compact */}
+            {step === "confirm" && (
+              <div className="space-y-1.5 sm:space-y-2.5">
+                {/* <Card className="p-2 sm:p-3 text-center bg-gradient-to-br from-green-50 to-emerald-50 border-green-200">
+                  <CheckCircle2 className="h-6 w-6 sm:h-8 sm:w-8 text-green-600 mx-auto mb-1 sm:mb-1.5" />
+                  <p className="text-xs sm:text-sm text-green-900 mb-0.5 sm:mb-1">
+                    Payment Received!
+                  </p>
+                  <p className="text-[11px] sm:text-xs text-green-700">
+                    Confirm to update your balance
+                  </p>
+                </Card> */}
+                <Card className="p-2 sm:p-3 text-center bg-gradient-to-br from-yellow-50 to-amber-50 border-yellow-200">
+                  <Clock className="h-6 w-6 sm:h-8 sm:w-8 text-yellow-600 mx-auto mb-1 sm:mb-1.5" />
+                  <p className="text-xs sm:text-sm text-yellow-900 mb-0.5 sm:mb-1">
+                    Payment Proof Submitted
+                  </p>
+                  <p className="text-[11px] sm:text-xs text-yellow-700">
+                    Your receipt has been sent. Awaiting admin confirmation.
+                  </p>
+                </Card>
+
+                {/* <div className="space-y-0.5 sm:space-y-1">
+                  <Label className="text-[11px] sm:text-xs">
+                    Transaction Reference
+                  </Label>
+                  <Input
+                    value={confirmationCode}
+                    readOnly
+                    className="text-center font-mono text-xs sm:text-sm h-8 sm:h-9"
+                  />
+                  <p className="text-[9px] sm:text-[10px] text-gray-500 text-center">
+                    Save this reference for your records
+                  </p>
                 </div>
-              </Card>
 
-              <Card className="p-2 sm:p-4 bg-orange-50 border-orange-200">
-                <div className="flex gap-2 sm:gap-3">
-                  <AlertCircle className="h-4 w-4 sm:h-5 sm:w-5 text-orange-600 mt-0.5 flex-shrink-0" />
-                  <div className="text-[11px] sm:text-xs text-orange-700">
-                    <p className="font-semibold mb-0.5 sm:mb-1">Important:</p>
-                    <ul className="list-disc list-inside space-y-0.5 sm:space-y-1">
-                      <li>Don't close this window</li>
-                      <li>Complete payment in the popup</li>
-                      <li>Balance updates automatically</li>
-                    </ul>
+                <Card className="p-2 sm:p-2.5 space-y-1.5 sm:space-y-2">
+                  <div className="flex justify-between text-[11px] sm:text-xs">
+                    <span className="text-gray-600">Amount:</span>
+                    <span>
+                      ₦
+                      {amount.toLocaleString("en-NG", {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
+                    </span>
                   </div>
-                </div>
-              </Card>
+                  <div className="flex justify-between text-[11px] sm:text-xs">
+                    <span className="text-gray-600">Gateway:</span>
+                    <span>
+                      {selectedGateway === "opay" ? "OPay" : "Paystack"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-[11px] sm:text-xs">
+                    <span className="text-gray-600">Method:</span>
+                    <span className="truncate ml-2">
+                      {selectedMethod?.bankName} ••••{selectedMethod?.last4}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center text-[11px] sm:text-xs">
+                    <span className="text-gray-600">Status:</span>
+                    <Badge className="bg-green-100 text-green-700 text-[9px] sm:text-[10px] px-1.5 py-0">
+                      <CheckCircle2 className="h-2 w-2 sm:h-2.5 sm:w-2.5 mr-0.5" />
+                      Verified
+                    </Badge>
+                  </div>
+                </Card> */}
 
-              <Button
-                variant="outline"
-                onClick={handleCancel}
-                className="w-full h-8 sm:h-10 text-xs sm:text-sm"
-              >
-                Cancel
-              </Button>
-            </div>
-          )}
+                {/* <div className="flex flex-col-reverse sm:flex-row gap-1.5 sm:gap-2 pt-1 sm:pt-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setStep("transfer");
+                      setSelectedGateway(null);
+                    }}
+                    className="flex-1 h-8 sm:h-10 text-xs sm:text-sm"
+                  >
+                    Back
+                  </Button>
 
-          {/* Step 3: Confirm Payment - Compact */}
-          {step === "confirm" && (
-            <div className="space-y-1.5 sm:space-y-2.5">
-              <Card className="p-2 sm:p-3 text-center bg-gradient-to-br from-green-50 to-emerald-50 border-green-200">
-                <CheckCircle2 className="h-6 w-6 sm:h-8 sm:w-8 text-green-600 mx-auto mb-1 sm:mb-1.5" />
-                <p className="text-xs sm:text-sm text-green-900 mb-0.5 sm:mb-1">Payment Received!</p>
-                <p className="text-[11px] sm:text-xs text-green-700">
-                  Confirm to update your balance
-                </p>
-              </Card>
-
-              <div className="space-y-0.5 sm:space-y-1">
-                <Label className="text-[11px] sm:text-xs">Transaction Reference</Label>
-                <Input value={confirmationCode} readOnly className="text-center font-mono text-xs sm:text-sm h-8 sm:h-9" />
-                <p className="text-[9px] sm:text-[10px] text-gray-500 text-center">
-                  Save this reference for your records
-                </p>
+                  <Button
+                    onClick={handleCompletePayment}
+                    className="flex-1 h-8 sm:h-10 text-xs sm:text-sm"
+                    disabled={isProcessing}
+                  >
+                    {isProcessing ? (
+                      <>
+                        <div className="h-3 w-3 sm:h-3.5 sm:w-3.5 border-2 border-white border-t-transparent rounded-full animate-spin mr-1.5" />
+                        Processing...
+                      </>
+                    ) : (
+                      "Confirm & Update Balance"
+                    )}
+                  </Button>
+                </div> */}
               </div>
-
-              <Card className="p-2 sm:p-2.5 space-y-1.5 sm:space-y-2">
-                <div className="flex justify-between text-[11px] sm:text-xs">
-                  <span className="text-gray-600">Amount:</span>
-                  <span>₦{amount.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                </div>
-                <div className="flex justify-between text-[11px] sm:text-xs">
-                  <span className="text-gray-600">Gateway:</span>
-                  <span>{selectedGateway === "opay" ? "OPay" : "Paystack"}</span>
-                </div>
-                <div className="flex justify-between text-[11px] sm:text-xs">
-                  <span className="text-gray-600">Method:</span>
-                  <span className="truncate ml-2">{selectedMethod?.bankName} ••••{selectedMethod?.last4}</span>
-                </div>
-                <div className="flex justify-between items-center text-[11px] sm:text-xs">
-                  <span className="text-gray-600">Status:</span>
-                  <Badge className="bg-green-100 text-green-700 text-[9px] sm:text-[10px] px-1.5 py-0">
-                    <CheckCircle2 className="h-2 w-2 sm:h-2.5 sm:w-2.5 mr-0.5" />
-                    Verified
-                  </Badge>
-                </div>
-              </Card>
-
-              <Button
-                onClick={handleCompletePayment}
-                className="w-full h-8 sm:h-9 text-xs sm:text-sm"
-                disabled={isProcessing}
-              >
-                {isProcessing ? (
-                  <>
-                    <div className="h-3 w-3 sm:h-3.5 sm:w-3.5 border-2 border-white border-t-transparent rounded-full animate-spin mr-1.5" />
-                    Processing...
-                  </>
-                ) : (
-                  "Confirm & Update Balance"
-                )}
-              </Button>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
         </ScrollArea>
       </DialogContent>
     </Dialog>

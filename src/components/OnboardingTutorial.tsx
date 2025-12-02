@@ -1,12 +1,17 @@
 import { useState, useEffect } from "react";
-import { Dialog, DialogContent, DialogTitle, DialogDescription } from "./ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  DialogDescription,
+} from "./ui/dialog";
 import { Button } from "./ui/button";
 import { Progress } from "./ui/progress";
-import { 
-  Home, 
-  HandCoins, 
-  Wallet, 
-  Headphones, 
+import {
+  Home,
+  HandCoins,
+  Wallet,
+  Headphones,
   User,
   ArrowRight,
   ArrowLeft,
@@ -15,7 +20,7 @@ import {
   TrendingUp,
   Shield,
   Zap,
-  X
+  X,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { BrandLogoCompact } from "./BrandLogo";
@@ -26,7 +31,11 @@ interface OnboardingTutorialProps {
   onSkip: () => void;
 }
 
-export function OnboardingTutorial({ isAdmin = false, onComplete, onSkip }: OnboardingTutorialProps) {
+export function OnboardingTutorial({
+  isAdmin = false,
+  onComplete,
+  onSkip,
+}: OnboardingTutorialProps) {
   const [currentStep, setCurrentStep] = useState(0);
   const [direction, setDirection] = useState(1);
 
@@ -39,9 +48,9 @@ export function OnboardingTutorial({ isAdmin = false, onComplete, onSkip }: Onbo
         "Manage loans with flexible repayment",
         "Save daily and build your financial future",
         "Track all your transactions in one place",
-        "24/7 customer support always available"
+        "24/7 customer support always available",
       ],
-      gradient: "from-blue-500 to-purple-500"
+      gradient: "from-blue-500 to-purple-500",
     },
     {
       icon: Home,
@@ -51,9 +60,9 @@ export function OnboardingTutorial({ isAdmin = false, onComplete, onSkip }: Onbo
         "View your current loan status and balance",
         "See your total contributions and streak",
         "Quick access to apply for loans",
-        "Track recent transactions at a glance"
+        "Track recent transactions at a glance",
       ],
-      gradient: "from-purple-500 to-pink-500"
+      gradient: "from-purple-500 to-pink-500",
     },
     {
       icon: HandCoins,
@@ -63,9 +72,9 @@ export function OnboardingTutorial({ isAdmin = false, onComplete, onSkip }: Onbo
         "Choose from SME, Business, or Jumbo loans",
         "Flexible loan amounts to suit your needs",
         "Easy application process with quick approval",
-        "Convenient weekly repayment schedule"
+        "Convenient weekly repayment schedule",
       ],
-      gradient: "from-pink-500 to-red-500"
+      gradient: "from-pink-500 to-red-500",
     },
     {
       icon: Wallet,
@@ -75,9 +84,9 @@ export function OnboardingTutorial({ isAdmin = false, onComplete, onSkip }: Onbo
         "Make daily savings contributions",
         "Track your contribution streak",
         "Withdraw anytime you need",
-        "Earn rewards for consistency"
+        "Earn rewards for consistency",
       ],
-      gradient: "from-red-500 to-orange-500"
+      gradient: "from-red-500 to-orange-500",
     },
     {
       icon: Shield,
@@ -87,9 +96,9 @@ export function OnboardingTutorial({ isAdmin = false, onComplete, onSkip }: Onbo
         "Complete KYC to access all features",
         "Upload government-issued ID",
         "Add guarantor information",
-        "Get approved within 24-48 hours"
+        "Get approved within 24-48 hours",
       ],
-      gradient: "from-orange-500 to-yellow-500"
+      gradient: "from-orange-500 to-yellow-500",
     },
     {
       icon: User,
@@ -99,10 +108,10 @@ export function OnboardingTutorial({ isAdmin = false, onComplete, onSkip }: Onbo
         "Update personal information",
         "Add payment methods",
         "Configure notification preferences",
-        "Access help and support"
+        "Access help and support",
       ],
-      gradient: "from-yellow-500 to-green-500"
-    }
+      gradient: "from-yellow-500 to-green-500",
+    },
   ];
 
   const adminSteps = [
@@ -114,9 +123,9 @@ export function OnboardingTutorial({ isAdmin = false, onComplete, onSkip }: Onbo
         "Complete admin dashboard with analytics",
         "Approve loans, KYC, and withdrawals",
         "Manage customer accounts",
-        "Generate comprehensive reports"
+        "Generate comprehensive reports",
       ],
-      gradient: "from-blue-600 to-indigo-600"
+      gradient: "from-blue-600 to-indigo-600",
     },
     {
       icon: TrendingUp,
@@ -126,9 +135,9 @@ export function OnboardingTutorial({ isAdmin = false, onComplete, onSkip }: Onbo
         "Monitor monthly service charges",
         "Track loan interest revenue",
         "View insurance fee collections",
-        "Analyze revenue trends over time"
+        "Analyze revenue trends over time",
       ],
-      gradient: "from-indigo-600 to-purple-600"
+      gradient: "from-indigo-600 to-purple-600",
     },
     {
       icon: Shield,
@@ -138,9 +147,9 @@ export function OnboardingTutorial({ isAdmin = false, onComplete, onSkip }: Onbo
         "Review and approve loan applications",
         "Verify KYC submissions",
         "Process withdrawal requests",
-        "Handle deposit refund claims"
+        "Handle deposit refund claims",
       ],
-      gradient: "from-purple-600 to-pink-600"
+      gradient: "from-purple-600 to-pink-600",
     },
     {
       icon: Zap,
@@ -150,10 +159,10 @@ export function OnboardingTutorial({ isAdmin = false, onComplete, onSkip }: Onbo
         "Bulk approve multiple requests",
         "Real-time activity monitoring",
         "Customer account management",
-        "Data export and reporting"
+        "Data export and reporting",
       ],
-      gradient: "from-pink-600 to-red-600"
-    }
+      gradient: "from-pink-600 to-red-600",
+    },
   ];
 
   const steps = isAdmin ? adminSteps : userSteps;
@@ -197,15 +206,14 @@ export function OnboardingTutorial({ isAdmin = false, onComplete, onSkip }: Onbo
   const Icon = currentStepData.icon;
 
   return (
-    <Dialog open={true} onOpenChange={() => {}}>
-      <DialogContent 
+    <Dialog open={true} showClose={false} onOpenChange={() => {}}>
+      <DialogContent
         className="sm:max-w-xl p-0 overflow-hidden"
         onPointerDownOutside={(e) => e.preventDefault()}
+        showClose={false}
       >
         {/* Accessibility - Visually Hidden */}
-        <DialogTitle className="sr-only">
-          {currentStepData.title}
-        </DialogTitle>
+        <DialogTitle className="sr-only">{currentStepData.title}</DialogTitle>
         <DialogDescription className="sr-only">
           {currentStepData.description}
         </DialogDescription>
@@ -213,7 +221,7 @@ export function OnboardingTutorial({ isAdmin = false, onComplete, onSkip }: Onbo
         {/* Close/Skip Button */}
         <button
           onClick={handleSkip}
-          className="absolute right-4 top-4 z-10 rounded-full p-2 hover:bg-gray-100 transition-colors"
+          className="absolute right-4 border-none top-3 z-10 rounded-full p-1.5 hover:bg-gray-100 transition-colors"
           aria-label="Skip tutorial"
         >
           <X className="h-4 w-4 text-gray-500" />
@@ -243,14 +251,14 @@ export function OnboardingTutorial({ isAdmin = false, onComplete, onSkip }: Onbo
               className="p-6"
             >
               {/* Icon Header */}
-              <div className={`w-20 h-20 rounded-2xl bg-gradient-to-br ${currentStepData.gradient} flex items-center justify-center mx-auto mb-6 shadow-lg`}>
+              <div
+                className={`w-20 h-20 rounded-2xl bg-gradient-to-br ${currentStepData.gradient} flex items-center justify-center mx-auto mb-6 shadow-lg`}
+              >
                 <Icon className="h-10 w-10 text-white" />
               </div>
 
               {/* Title */}
-              <h2 className="text-center mb-2">
-                {currentStepData.title}
-              </h2>
+              <h2 className="text-center mb-2">{currentStepData.title}</h2>
               <p className="text-sm text-gray-600 text-center mb-6">
                 {currentStepData.description}
               </p>
@@ -294,7 +302,10 @@ export function OnboardingTutorial({ isAdmin = false, onComplete, onSkip }: Onbo
               <ArrowRight className="h-4 w-4 ml-2" />
             </Button>
           ) : (
-            <Button onClick={handleComplete} className="flex-1 bg-green-600 hover:bg-green-700">
+            <Button
+              onClick={handleComplete}
+              className="flex-1 bg-green-600 hover:bg-green-700"
+            >
               Get Started
               <Sparkles className="h-4 w-4 ml-2" />
             </Button>
@@ -329,12 +340,16 @@ export function useOnboarding(isAdmin: boolean = false) {
   const [shouldShowOnboarding, setShouldShowOnboarding] = useState(false);
 
   useEffect(() => {
-    const storageKey = isAdmin ? "adminOnboardingCompleted" : "userOnboardingCompleted";
-    const skipKey = isAdmin ? "adminOnboardingSkipped" : "userOnboardingSkipped";
-    
+    const storageKey = isAdmin
+      ? "adminOnboardingCompleted"
+      : "userOnboardingCompleted";
+    const skipKey = isAdmin
+      ? "adminOnboardingSkipped"
+      : "userOnboardingSkipped";
+
     const completed = localStorage.getItem(storageKey);
     const skipped = localStorage.getItem(skipKey);
-    
+
     // Show onboarding if neither completed nor skipped
     if (!completed && !skipped) {
       setShouldShowOnboarding(true);
@@ -342,9 +357,13 @@ export function useOnboarding(isAdmin: boolean = false) {
   }, [isAdmin]);
 
   const resetOnboarding = () => {
-    const storageKey = isAdmin ? "adminOnboardingCompleted" : "userOnboardingCompleted";
-    const skipKey = isAdmin ? "adminOnboardingSkipped" : "userOnboardingSkipped";
-    
+    const storageKey = isAdmin
+      ? "adminOnboardingCompleted"
+      : "userOnboardingCompleted";
+    const skipKey = isAdmin
+      ? "adminOnboardingSkipped"
+      : "userOnboardingSkipped";
+
     localStorage.removeItem(storageKey);
     localStorage.removeItem(skipKey);
     setShouldShowOnboarding(true);
@@ -353,6 +372,6 @@ export function useOnboarding(isAdmin: boolean = false) {
   return {
     shouldShowOnboarding,
     setShouldShowOnboarding,
-    resetOnboarding
+    resetOnboarding,
   };
 }
