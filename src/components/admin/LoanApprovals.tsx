@@ -652,7 +652,7 @@ export function LoanApprovals() {
                 variant={
                   application?.upfrontPaymentStatus === "pending"
                     ? "secondary"
-                    : application?.upfrontPaymentStatus === "paid"
+                    : (application?.upfrontPaymentStatus === "paid" || application?.upfrontPaymentStatus === "approved")
                     ? "default"
                     : "secondary"
                 }
@@ -660,7 +660,7 @@ export function LoanApprovals() {
               >
                 {application?.upfrontPaymentStatus === "pending"
                   ? "Pending"
-                  : application?.upfrontPaymentStatus === "paid"
+                  : (application?.upfrontPaymentStatus === "paid" || application?.upfrontPaymentStatus === "approved")
                   ? "Confirmed"
                   : application?.upfrontPaymentStatus === "rejected"
                   ? "Rejected"
