@@ -35,6 +35,7 @@ import {
   getLoanApplications,
 } from "../../lib/admin/loan_approvals";
 import { BeatLoader } from "react-spinners";
+import { useFileViewer } from "../../components/common/FileViewer";
 
 interface LoanApplication {
   upfrontCostLoanRequests?: any[];
@@ -44,6 +45,7 @@ interface LoanApplication {
 }
 
 export function LoanApprovals() {
+  const { openViewer, FileViewerComponent } = useFileViewer();
   const [selectedLoan, setSelectedLoan] = useState<LoanApplication | null>(
     null
   );
@@ -652,7 +654,8 @@ export function LoanApprovals() {
                 variant={
                   application?.upfrontPaymentStatus === "pending"
                     ? "secondary"
-                    : (application?.upfrontPaymentStatus === "paid" || application?.upfrontPaymentStatus === "approved")
+                    : application?.upfrontPaymentStatus === "paid" ||
+                      application?.upfrontPaymentStatus === "approved"
                     ? "default"
                     : "secondary"
                 }
@@ -660,7 +663,8 @@ export function LoanApprovals() {
               >
                 {application?.upfrontPaymentStatus === "pending"
                   ? "Pending"
-                  : (application?.upfrontPaymentStatus === "paid" || application?.upfrontPaymentStatus === "approved")
+                  : application?.upfrontPaymentStatus === "paid" ||
+                    application?.upfrontPaymentStatus === "approved"
                   ? "Confirmed"
                   : application?.upfrontPaymentStatus === "rejected"
                   ? "Rejected"
@@ -763,6 +767,15 @@ export function LoanApprovals() {
                 </Button>
               </>
             )}
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full sm:w-auto text-xs sm:text-sm h-8 sm:h-9"
+              onClick={() => openViewer(application.upfrontCostPaymentEvidence)}
+            >
+              <Eye className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+              View Receipt
+            </Button>
           </div>
         </div>
       </Card>
@@ -770,268 +783,270 @@ export function LoanApprovals() {
   };
 
   return (
-    <div className="space-y-6 pb-6">
-      <div>
-        <h2>Loan Approvals</h2>
-        <p className="text-sm text-gray-600">
-          Review and approve loan applications
-        </p>
-      </div>
+    <div>
+      <FileViewerComponent />
+      <div className="space-y-6 pb-6">
+        <div>
+          <h2>Loan Approvals</h2>
+          <p className="text-sm text-gray-600">
+            Review and approve loan applications
+          </p>
+        </div>
 
-      {/* Stats Cards Start  */}
-      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 md:gap-4">
-        <Card className="p-3 sm:p-4">
-          <div className="flex items-center gap-2 sm:gap-3">
-            <ClipboardCheck className="h-6 w-6 sm:h-8 sm:w-8 text-orange-600 flex-shrink-0" />
-            <div className="min-w-0">
-              <p className="text-xl sm:text-2xl font-semibold">
-                {isLoading
-                  ? "..."
-                  : applications?.upfrontCostLoanRequests?.filter(
-                      (item: any) => item.upfrontPaymentStatus === "pending"
-                    ).length || 0}
-              </p>
-              <p className="text-[10px] sm:text-sm text-gray-600 leading-tight">
-                Upfront Confirmations
-              </p>
+        {/* Stats Cards Start  */}
+        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 md:gap-4">
+          <Card className="p-3 sm:p-4">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <ClipboardCheck className="h-6 w-6 sm:h-8 sm:w-8 text-orange-600 flex-shrink-0" />
+              <div className="min-w-0">
+                <p className="text-xl sm:text-2xl font-semibold">
+                  {isLoading
+                    ? "..."
+                    : applications?.upfrontCostLoanRequests?.filter(
+                        (item: any) => item.upfrontPaymentStatus === "pending"
+                      ).length || 0}
+                </p>
+                <p className="text-[10px] sm:text-sm text-gray-600 leading-tight">
+                  Upfront Confirmations
+                </p>
+              </div>
             </div>
-          </div>
-        </Card>
+          </Card>
 
-        <Card className="p-3 sm:p-4">
-          <div className="flex items-center gap-2 sm:gap-3">
-            <Clock className="h-6 w-6 sm:h-8 sm:w-8 text-orange-600 flex-shrink-0" />
-            <div className="min-w-0">
-              <p className="text-xl sm:text-2xl font-semibold">
-                {isLoading
-                  ? "..."
-                  : applications?.pendingLoanRequests?.length || 0}
-              </p>
-              <p className="text-[10px] sm:text-sm text-gray-600 leading-tight">
-                Pending
-              </p>
+          <Card className="p-3 sm:p-4">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <Clock className="h-6 w-6 sm:h-8 sm:w-8 text-orange-600 flex-shrink-0" />
+              <div className="min-w-0">
+                <p className="text-xl sm:text-2xl font-semibold">
+                  {isLoading
+                    ? "..."
+                    : applications?.pendingLoanRequests?.length || 0}
+                </p>
+                <p className="text-[10px] sm:text-sm text-gray-600 leading-tight">
+                  Pending
+                </p>
+              </div>
             </div>
-          </div>
-        </Card>
+          </Card>
 
-        <Card className="p-3 sm:p-4">
-          <div className="flex items-center gap-2 sm:gap-3">
-            <CheckCircle2 className="h-6 w-6 sm:h-8 sm:w-8 text-green-600 flex-shrink-0" />
-            <div className="min-w-0">
-              <p className="text-xl sm:text-2xl font-semibold">
-                {isLoading
-                  ? "..."
-                  : applications?.approvedLoanRequests?.length || 0}
-              </p>
-              <p className="text-[10px] sm:text-sm text-gray-600 leading-tight">
-                Approved
-              </p>
+          <Card className="p-3 sm:p-4">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <CheckCircle2 className="h-6 w-6 sm:h-8 sm:w-8 text-green-600 flex-shrink-0" />
+              <div className="min-w-0">
+                <p className="text-xl sm:text-2xl font-semibold">
+                  {isLoading
+                    ? "..."
+                    : applications?.approvedLoanRequests?.length || 0}
+                </p>
+                <p className="text-[10px] sm:text-sm text-gray-600 leading-tight">
+                  Approved
+                </p>
+              </div>
             </div>
-          </div>
-        </Card>
+          </Card>
 
-        <Card className="p-3 sm:p-4">
-          <div className="flex items-center gap-2 sm:gap-3">
-            <XCircle className="h-6 w-6 sm:h-8 sm:w-8 text-red-600 flex-shrink-0" />
-            <div className="min-w-0">
-              <p className="text-xl sm:text-2xl font-semibold">
-                {isLoading
-                  ? "..."
-                  : applications?.regectedLoanRequests?.length || 0}
-              </p>
-              <p className="text-[10px] sm:text-sm text-gray-600 leading-tight">
-                Rejected
-              </p>
+          <Card className="p-3 sm:p-4">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <XCircle className="h-6 w-6 sm:h-8 sm:w-8 text-red-600 flex-shrink-0" />
+              <div className="min-w-0">
+                <p className="text-xl sm:text-2xl font-semibold">
+                  {isLoading
+                    ? "..."
+                    : applications?.regectedLoanRequests?.length || 0}
+                </p>
+                <p className="text-[10px] sm:text-sm text-gray-600 leading-tight">
+                  Rejected
+                </p>
+              </div>
             </div>
-          </div>
-        </Card>
-      </div>
+          </Card>
+        </div>
 
-      {/* Stats Cards End  */}
+        {/* Stats Cards End  */}
 
-      <Tabs defaultValue="upfront" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 gap-1 h-auto p-1">
-          <TabsTrigger
-            value="upfront"
-            className="text-[12px] sm:text-xs md:text-sm px-1 sm:px-3 py-2 data-[state=active]:text-xs sm:data-[state=active]:text-sm"
-          >
-            <span className="hidden sm:inline">Upfront Confirmations</span>
-            <span className="sm:hidden">Upfront</span>
-            <span className="ml-1">
-              (
-              {applications?.upfrontCostLoanRequests?.filter(
-                (item: any) => item.upfrontPaymentStatus === "pending"
-              ).length || 0}
-              )
-            </span>
-          </TabsTrigger>
-          <TabsTrigger
-            value="pending"
-            className="text-[12px] sm:text-xs md:text-sm px-1 sm:px-3 py-2"
-          >
-            Pending
-            <span className="ml-1">
-              ({applications?.pendingLoanRequests?.length || 0})
-            </span>
-          </TabsTrigger>
-          <TabsTrigger
-            value="approved"
-            className="text-[12px] sm:text-xs md:text-sm px-1 sm:px-3 py-2"
-          >
-            Approved
-            <span className="ml-1">
-              ({applications?.approvedLoanRequests?.length || 0})
-            </span>
-          </TabsTrigger>
-          <TabsTrigger
-            value="rejected"
-            className="text-[12px] sm:text-xs md:text-sm px-1 sm:px-3 py-2"
-          >
-            Rejected
-            <span className="ml-1">
-              ({applications?.regectedLoanRequests?.length || 0})
-            </span>
-          </TabsTrigger>
-        </TabsList>
-
-        {isLoading ? (
-          <div className="flex justify-center my-4">
-            <BeatLoader />
-          </div>
-        ) : (
-          <>
-            <TabsContent
+        <Tabs defaultValue="upfront" className="w-full">
+          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 gap-1 h-auto p-1">
+            <TabsTrigger
               value="upfront"
-              className="space-y-2 sm:space-y-4 mt-3 sm:mt-4"
+              className="text-[12px] sm:text-xs md:text-sm px-1 sm:px-3 py-2 data-[state=active]:text-xs sm:data-[state=active]:text-sm"
             >
-              {applications?.upfrontCostLoanRequests?.map((app: any) => (
-                <ApplicationCard key={app.id} application={app} />
-              ))}
-              {applications?.upfrontCostLoanRequests?.length === 0 && (
-                <Card className="p-4 sm:p-8 text-center">
-                  <p className="text-sm sm:text-base text-gray-500">
-                    No pending applications
-                  </p>
-                </Card>
-              )}
-            </TabsContent>
-
-            <TabsContent
+              <span className="hidden sm:inline">Upfront Confirmations</span>
+              <span className="sm:hidden">Upfront</span>
+              <span className="ml-1">
+                (
+                {applications?.upfrontCostLoanRequests?.filter(
+                  (item: any) => item.upfrontPaymentStatus === "pending"
+                ).length || 0}
+                )
+              </span>
+            </TabsTrigger>
+            <TabsTrigger
               value="pending"
-              className="space-y-2 sm:space-y-4 mt-3 sm:mt-4"
+              className="text-[12px] sm:text-xs md:text-sm px-1 sm:px-3 py-2"
             >
-              {applications?.pendingLoanRequests?.map((app: any) => (
-                <ApplicationCard key={app.id} application={app} />
-              ))}
-              {applications?.pendingLoanRequests?.length === 0 && (
-                <Card className="p-4 sm:p-8 text-center">
-                  <p className="text-sm sm:text-base text-gray-500">
-                    No pending applications
-                  </p>
-                </Card>
-              )}
-            </TabsContent>
-
-            <TabsContent
+              Pending
+              <span className="ml-1">
+                ({applications?.pendingLoanRequests?.length || 0})
+              </span>
+            </TabsTrigger>
+            <TabsTrigger
               value="approved"
-              className="space-y-2 sm:space-y-4 mt-3 sm:mt-4"
+              className="text-[12px] sm:text-xs md:text-sm px-1 sm:px-3 py-2"
             >
-              {applications?.approvedLoanRequests?.map((app: any) => (
-                <ApplicationCard key={app._id} application={app} />
-              ))}
-              {applications?.approvedLoanRequests?.length === 0 && (
-                <Card className="p-4 sm:p-8 text-center">
-                  <p className="text-sm sm:text-base text-gray-500">
-                    No approved applications
-                  </p>
-                </Card>
-              )}
-            </TabsContent>
-
-            <TabsContent
+              Approved
+              <span className="ml-1">
+                ({applications?.approvedLoanRequests?.length || 0})
+              </span>
+            </TabsTrigger>
+            <TabsTrigger
               value="rejected"
-              className="space-y-2 sm:space-y-4 mt-3 sm:mt-4"
+              className="text-[12px] sm:text-xs md:text-sm px-1 sm:px-3 py-2"
             >
-              {applications?.regectedLoanRequests?.map((app: any) => (
-                <ApplicationCard key={app._id} application={app} />
-              ))}
-              {applications?.regectedLoanRequests?.length === 0 && (
-                <Card className="p-4 sm:p-8 text-center">
-                  <p className="text-sm sm:text-base text-gray-500">
-                    No rejected applications
-                  </p>
-                </Card>
-              )}
-            </TabsContent>
-          </>
-        )}
-      </Tabs>
+              Rejected
+              <span className="ml-1">
+                ({applications?.regectedLoanRequests?.length || 0})
+              </span>
+            </TabsTrigger>
+          </TabsList>
 
-      {/* View Details Dialog */}
-      <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
-        <DialogContent className="sm:max-w-lg md:max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="text-base sm:text-lg">
-              Loan Application Details
-            </DialogTitle>
-            <DialogDescription className="text-xs sm:text-sm">
-              Review complete application information
-            </DialogDescription>
-          </DialogHeader>
-          {selectedLoan && (
-            <div className="space-y-3 sm:space-y-4 py-2 sm:py-4">
-              <div className="space-y-2 sm:space-y-3">
-                <div className="flex justify-between items-center">
-                  <span className="text-xs sm:text-sm text-gray-600">
-                    Applicant:
-                  </span>
-                  <span className="text-xs sm:text-sm font-medium">
-                    {selectedLoan.userId?.name}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-xs sm:text-sm text-gray-600">
-                    User ID:
-                  </span>
-                  <span className="text-xs sm:text-sm">
-                    {selectedLoan.userId?._id}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-xs sm:text-sm text-gray-600">
-                    Amount:
-                  </span>
-                  <span className="text-xs sm:text-sm font-medium">
-                    ₦{selectedLoan?.loanAmount.toLocaleString() || ""}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-xs sm:text-sm text-gray-600">
-                    Period:
-                  </span>
-                  <span className="text-xs sm:text-sm">
-                    {selectedLoan?.loanPeriod || ""} weeks
-                  </span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-xs sm:text-sm text-gray-600">
-                    Purpose:
-                  </span>
-                  <span className="text-xs sm:text-sm text-right max-w-[60%] break-words">
-                    {selectedLoan?.loanPurpose || ""}
-                  </span>
-                </div>
-                {selectedLoan?.status === "rejected" && (
+          {isLoading ? (
+            <div className="flex justify-center my-4">
+              <BeatLoader />
+            </div>
+          ) : (
+            <>
+              <TabsContent
+                value="upfront"
+                className="space-y-2 sm:space-y-4 mt-3 sm:mt-4"
+              >
+                {applications?.upfrontCostLoanRequests?.map((app: any) => (
+                  <ApplicationCard key={app.id} application={app} />
+                ))}
+                {applications?.upfrontCostLoanRequests?.length === 0 && (
+                  <Card className="p-4 sm:p-8 text-center">
+                    <p className="text-sm sm:text-base text-gray-500">
+                      No pending applications
+                    </p>
+                  </Card>
+                )}
+              </TabsContent>
+
+              <TabsContent
+                value="pending"
+                className="space-y-2 sm:space-y-4 mt-3 sm:mt-4"
+              >
+                {applications?.pendingLoanRequests?.map((app: any) => (
+                  <ApplicationCard key={app.id} application={app} />
+                ))}
+                {applications?.pendingLoanRequests?.length === 0 && (
+                  <Card className="p-4 sm:p-8 text-center">
+                    <p className="text-sm sm:text-base text-gray-500">
+                      No pending applications
+                    </p>
+                  </Card>
+                )}
+              </TabsContent>
+
+              <TabsContent
+                value="approved"
+                className="space-y-2 sm:space-y-4 mt-3 sm:mt-4"
+              >
+                {applications?.approvedLoanRequests?.map((app: any) => (
+                  <ApplicationCard key={app._id} application={app} />
+                ))}
+                {applications?.approvedLoanRequests?.length === 0 && (
+                  <Card className="p-4 sm:p-8 text-center">
+                    <p className="text-sm sm:text-base text-gray-500">
+                      No approved applications
+                    </p>
+                  </Card>
+                )}
+              </TabsContent>
+
+              <TabsContent
+                value="rejected"
+                className="space-y-2 sm:space-y-4 mt-3 sm:mt-4"
+              >
+                {applications?.regectedLoanRequests?.map((app: any) => (
+                  <ApplicationCard key={app._id} application={app} />
+                ))}
+                {applications?.regectedLoanRequests?.length === 0 && (
+                  <Card className="p-4 sm:p-8 text-center">
+                    <p className="text-sm sm:text-base text-gray-500">
+                      No rejected applications
+                    </p>
+                  </Card>
+                )}
+              </TabsContent>
+            </>
+          )}
+        </Tabs>
+
+        {/* View Details Dialog */}
+        <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
+          <DialogContent className="sm:max-w-lg md:max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="text-base sm:text-lg">
+                Loan Application Details
+              </DialogTitle>
+              <DialogDescription className="text-xs sm:text-sm">
+                Review complete application information
+              </DialogDescription>
+            </DialogHeader>
+            {selectedLoan && (
+              <div className="space-y-3 sm:space-y-4 py-2 sm:py-4">
+                <div className="space-y-2 sm:space-y-3">
                   <div className="flex justify-between items-center">
                     <span className="text-xs sm:text-sm text-gray-600">
-                      Rejection Reason:
+                      Applicant:
                     </span>
-                    <span className="text-xs sm:text-sm text-right max-w-[60%] break-words">
-                      {selectedLoan?.rejectionReason || ""}
+                    <span className="text-xs sm:text-sm font-medium">
+                      {selectedLoan.userId?.name}
                     </span>
                   </div>
-                )}
-                {/* <div className="flex justify-between items-center">
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs sm:text-sm text-gray-600">
+                      User ID:
+                    </span>
+                    <span className="text-xs sm:text-sm">
+                      {selectedLoan.userId?._id}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs sm:text-sm text-gray-600">
+                      Amount:
+                    </span>
+                    <span className="text-xs sm:text-sm font-medium">
+                      ₦{selectedLoan?.loanAmount.toLocaleString() || ""}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs sm:text-sm text-gray-600">
+                      Period:
+                    </span>
+                    <span className="text-xs sm:text-sm">
+                      {selectedLoan?.loanPeriod || ""} weeks
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs sm:text-sm text-gray-600">
+                      Purpose:
+                    </span>
+                    <span className="text-xs sm:text-sm text-right max-w-[60%] break-words">
+                      {selectedLoan?.loanPurpose || ""}
+                    </span>
+                  </div>
+                  {selectedLoan?.status === "rejected" && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs sm:text-sm text-gray-600">
+                        Rejection Reason:
+                      </span>
+                      <span className="text-xs sm:text-sm text-right max-w-[60%] break-words">
+                        {selectedLoan?.rejectionReason || ""}
+                      </span>
+                    </div>
+                  )}
+                  {/* <div className="flex justify-between items-center">
                   <span className="text-xs sm:text-sm text-gray-600">
                     Credit Score:
                   </span>
@@ -1039,7 +1054,7 @@ export function LoanApprovals() {
                     {selectedLoan.creditScore}
                   </span>
                 </div> */}
-                {/* <div className="flex justify-between items-center">
+                  {/* <div className="flex justify-between items-center">
                   <span className="text-xs sm:text-sm text-gray-600">
                     Contributions:
                   </span>
@@ -1047,7 +1062,7 @@ export function LoanApprovals() {
                     ₦{selectedLoan.totalContributions.toLocaleString()}
                   </span>
                 </div> */}
-                {/* <div className="flex justify-between items-center">
+                  {/* <div className="flex justify-between items-center">
                   <span className="text-xs sm:text-sm text-gray-600">
                     Previous Loans:
                   </span>
@@ -1055,122 +1070,126 @@ export function LoanApprovals() {
                     {selectedLoan.loanHistory} completed
                   </span>
                 </div> */}
-              </div>
+                </div>
 
-              {/* Upfront Costs Section */}
-              {selectedLoan.loanType &&
-                (() => {
-                  const upfront = calculateUpfrontCosts(
-                    selectedLoan.loanAmount,
-                    selectedLoan.loanType
-                  );
+                {/* Upfront Costs Section */}
+                {selectedLoan.loanType &&
+                  (() => {
+                    const upfront = calculateUpfrontCosts(
+                      selectedLoan.loanAmount,
+                      selectedLoan.loanType
+                    );
 
-                  // Check real application for payment status
-                  // const loanApplications = JSON.parse(
-                  //   localStorage.getItem("loanApplications") || "[]"
-                  // );
-                  // const realApplication = loanApplications.find(
-                  //   (app: any) => app.id === selectedLoan.id
-                  // );
-                  const upfrontPaid =
-                    selectedLoan?.upfrontPaymentStatus == "paid" || false;
-                  // const paidFrom = realApplication?.upfrontCosts?.paidFrom;
-                  // const paidAt = realApplication?.upfrontCosts?.paidAt;
+                    // Check real application for payment status
+                    // const loanApplications = JSON.parse(
+                    //   localStorage.getItem("loanApplications") || "[]"
+                    // );
+                    // const realApplication = loanApplications.find(
+                    //   (app: any) => app.id === selectedLoan.id
+                    // );
+                    const upfrontPaid =
+                      selectedLoan?.upfrontPaymentStatus == "paid" || false;
+                    // const paidFrom = realApplication?.upfrontCosts?.paidFrom;
+                    // const paidAt = realApplication?.upfrontCosts?.paidAt;
 
-                  return (
-                    <div
-                      className={`border rounded-lg p-3 sm:p-4 space-y-2 sm:space-y-3 ${
-                        upfrontPaid
-                          ? "bg-green-50 border-green-200"
-                          : "bg-orange-50 border-orange-200"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between pb-2 border-b border-current/20">
-                        <div className="flex items-center gap-2">
-                          <Coins
-                            className={`h-3 w-3 sm:h-4 sm:w-4 ${
-                              upfrontPaid ? "text-green-600" : "text-orange-600"
-                            }`}
-                          />
-                          <h4
-                            className={`text-xs sm:text-sm ${
-                              upfrontPaid ? "text-green-900" : "text-orange-900"
+                    return (
+                      <div
+                        className={`border rounded-lg p-3 sm:p-4 space-y-2 sm:space-y-3 ${
+                          upfrontPaid
+                            ? "bg-green-50 border-green-200"
+                            : "bg-orange-50 border-orange-200"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between pb-2 border-b border-current/20">
+                          <div className="flex items-center gap-2">
+                            <Coins
+                              className={`h-3 w-3 sm:h-4 sm:w-4 ${
+                                upfrontPaid
+                                  ? "text-green-600"
+                                  : "text-orange-600"
+                              }`}
+                            />
+                            <h4
+                              className={`text-xs sm:text-sm ${
+                                upfrontPaid
+                                  ? "text-green-900"
+                                  : "text-orange-900"
+                              }`}
+                            >
+                              Upfront Costs
+                            </h4>
+                          </div>
+                          <Badge
+                            variant={upfrontPaid ? "default" : "outline"}
+                            className={`text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 ${
+                              upfrontPaid
+                                ? "bg-green-600"
+                                : "border-orange-300 text-orange-700"
                             }`}
                           >
-                            Upfront Costs
-                          </h4>
+                            {upfrontPaid ? "Paid" : "Unpaid"}
+                          </Badge>
                         </div>
-                        <Badge
-                          variant={upfrontPaid ? "default" : "outline"}
-                          className={`text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 ${
-                            upfrontPaid
-                              ? "bg-green-600"
-                              : "border-orange-300 text-orange-700"
-                          }`}
-                        >
-                          {upfrontPaid ? "Paid" : "Unpaid"}
-                        </Badge>
-                      </div>
-                      <div className="space-y-1.5 sm:space-y-2 text-[10px] sm:text-xs">
-                        <div className="flex justify-between items-center">
-                          <span className="text-gray-600 flex items-center gap-1">
-                            <DollarSign className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
-                            <span className="text-[10px] sm:text-xs">
-                              Deposit (10%):
-                            </span>
-                          </span>
-                          <span className="text-[10px] sm:text-xs font-medium">
-                            {formatCurrency(upfront.deposit)}
-                          </span>
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-gray-600 flex items-center gap-1">
-                            <Shield className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
-                            <span className="text-[10px] sm:text-xs">
-                              Insurance ({upfront.insuranceRate}%):
-                            </span>
-                          </span>
-                          <span className="text-[10px] sm:text-xs font-medium">
-                            {formatCurrency(upfront.insurance)}
-                          </span>
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-gray-600 flex items-center gap-1">
-                            <Building2 className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
-                            <span className="text-[10px] sm:text-xs">
-                              Service Charge:
-                            </span>
-                          </span>
-                          <span className="text-[10px] sm:text-xs font-medium">
-                            {formatCurrency(upfront.serviceCharge)}
-                          </span>
-                        </div>
-                        <div className="border-t border-current/20 pt-1.5 sm:pt-2 mt-1.5 sm:mt-2">
+                        <div className="space-y-1.5 sm:space-y-2 text-[10px] sm:text-xs">
                           <div className="flex justify-between items-center">
-                            <span
-                              className={`text-xs sm:text-sm font-semibold ${
-                                upfrontPaid
-                                  ? "text-green-900"
-                                  : "text-orange-900"
-                              }`}
-                            >
-                              Total Upfront:
+                            <span className="text-gray-600 flex items-center gap-1">
+                              <DollarSign className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
+                              <span className="text-[10px] sm:text-xs">
+                                Deposit (10%):
+                              </span>
                             </span>
-                            <span
-                              className={`text-xs sm:text-sm font-semibold ${
-                                upfrontPaid
-                                  ? "text-green-900"
-                                  : "text-orange-900"
-                              }`}
-                            >
-                              {formatCurrency(upfront.totalUpfront)}
+                            <span className="text-[10px] sm:text-xs font-medium">
+                              {formatCurrency(upfront.deposit)}
                             </span>
                           </div>
+                          <div className="flex justify-between items-center">
+                            <span className="text-gray-600 flex items-center gap-1">
+                              <Shield className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
+                              <span className="text-[10px] sm:text-xs">
+                                Insurance ({upfront.insuranceRate}%):
+                              </span>
+                            </span>
+                            <span className="text-[10px] sm:text-xs font-medium">
+                              {formatCurrency(upfront.insurance)}
+                            </span>
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <span className="text-gray-600 flex items-center gap-1">
+                              <Building2 className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
+                              <span className="text-[10px] sm:text-xs">
+                                Service Charge:
+                              </span>
+                            </span>
+                            <span className="text-[10px] sm:text-xs font-medium">
+                              {formatCurrency(upfront.serviceCharge)}
+                            </span>
+                          </div>
+                          <div className="border-t border-current/20 pt-1.5 sm:pt-2 mt-1.5 sm:mt-2">
+                            <div className="flex justify-between items-center">
+                              <span
+                                className={`text-xs sm:text-sm font-semibold ${
+                                  upfrontPaid
+                                    ? "text-green-900"
+                                    : "text-orange-900"
+                                }`}
+                              >
+                                Total Upfront:
+                              </span>
+                              <span
+                                className={`text-xs sm:text-sm font-semibold ${
+                                  upfrontPaid
+                                    ? "text-green-900"
+                                    : "text-orange-900"
+                                }`}
+                              >
+                                {formatCurrency(upfront.totalUpfront)}
+                              </span>
+                            </div>
+                          </div>
                         </div>
-                      </div>
-                      {upfrontPaid ? (
-                        <div className="space-y-1.5 sm:space-y-2">
-                          {/* <p className="text-[10px] sm:text-xs text-green-800 bg-green-100 border border-green-300 rounded p-1.5 sm:p-2">
+                        {upfrontPaid ? (
+                          <div className="space-y-1.5 sm:space-y-2">
+                            {/* <p className="text-[10px] sm:text-xs text-green-800 bg-green-100 border border-green-300 rounded p-1.5 sm:p-2">
                             <CheckCircle2 className="h-2.5 w-2.5 sm:h-3 sm:w-3 inline mr-1" />
                             Paid from{" "}
                             {paidFrom === "contribution_balance"
@@ -1179,100 +1198,101 @@ export function LoanApprovals() {
                             {paidAt &&
                               ` on ${new Date(paidAt).toLocaleDateString()}`}
                           </p> */}
-                          {/* <p className="text-[10px] sm:text-xs text-blue-800 bg-blue-50 border border-blue-200 rounded p-1.5 sm:p-2">
+                            {/* <p className="text-[10px] sm:text-xs text-blue-800 bg-blue-50 border border-blue-200 rounded p-1.5 sm:p-2">
                             Deposit of {formatCurrency(upfront.deposit)} is
                             refundable after full repayment
                           </p> */}
+                          </div>
+                        ) : (
+                          <p className="text-[10px] sm:text-xs text-orange-800 bg-orange-100 border border-orange-300 rounded p-1.5 sm:p-2">
+                            <AlertCircle className="h-2.5 w-2.5 sm:h-3 sm:w-3 inline mr-1" />
+                            Customer must pay upfront costs before approval (if
+                            policy requires)
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })()}
+
+                {selectedLoan.status === "pending" &&
+                  (() => {
+                    const requireUpfrontPayment = JSON.parse(
+                      localStorage.getItem("requireUpfrontPayment") || "true"
+                    );
+                    const loanApplications = JSON.parse(
+                      localStorage.getItem("loanApplications") || "[]"
+                    );
+                    const realApplication = loanApplications.find(
+                      (app: any) => app.id === selectedLoan.id
+                    );
+                    const upfrontPaid =
+                      realApplication?.upfrontCosts?.paid || false;
+                    const canApprove = !requireUpfrontPayment || upfrontPaid;
+
+                    return (
+                      <>
+                        {selectedLoan?.upfrontPaymentStatus === "draft" && (
+                          <Alert className="bg-red-50 border-red-200 py-2 sm:py-3">
+                            <AlertCircle className="h-3 w-3 sm:h-4 sm:w-4 text-red-600" />
+                            <AlertDescription className="text-red-800 text-[10px] sm:text-sm">
+                              <strong>Cannot Approve:</strong> Company policy
+                              requires upfront payment before loan approval.
+                              Customer has not paid yet.
+                            </AlertDescription>
+                          </Alert>
+                        )}
+
+                        <div className="space-y-1.5 sm:space-y-2">
+                          <Label
+                            htmlFor="reject-reason"
+                            className="text-xs sm:text-sm"
+                          >
+                            Rejection Reason (if rejecting)
+                          </Label>
+                          <Textarea
+                            id="reject-reason"
+                            placeholder="Provide a reason for rejection..."
+                            value={rejectReason}
+                            onChange={(e) => setRejectReason(e.target.value)}
+                            rows={3}
+                            className="text-xs sm:text-sm"
+                          />
                         </div>
-                      ) : (
-                        <p className="text-[10px] sm:text-xs text-orange-800 bg-orange-100 border border-orange-300 rounded p-1.5 sm:p-2">
-                          <AlertCircle className="h-2.5 w-2.5 sm:h-3 sm:w-3 inline mr-1" />
-                          Customer must pay upfront costs before approval (if
-                          policy requires)
-                        </p>
-                      )}
-                    </div>
-                  );
-                })()}
 
-              {selectedLoan.status === "pending" &&
-                (() => {
-                  const requireUpfrontPayment = JSON.parse(
-                    localStorage.getItem("requireUpfrontPayment") || "true"
-                  );
-                  const loanApplications = JSON.parse(
-                    localStorage.getItem("loanApplications") || "[]"
-                  );
-                  const realApplication = loanApplications.find(
-                    (app: any) => app.id === selectedLoan.id
-                  );
-                  const upfrontPaid =
-                    realApplication?.upfrontCosts?.paid || false;
-                  const canApprove = !requireUpfrontPayment || upfrontPaid;
-
-                  return (
-                    <>
-                      {selectedLoan?.upfrontPaymentStatus === "draft" && (
-                        <Alert className="bg-red-50 border-red-200 py-2 sm:py-3">
-                          <AlertCircle className="h-3 w-3 sm:h-4 sm:w-4 text-red-600" />
-                          <AlertDescription className="text-red-800 text-[10px] sm:text-sm">
-                            <strong>Cannot Approve:</strong> Company policy
-                            requires upfront payment before loan approval.
-                            Customer has not paid yet.
-                          </AlertDescription>
-                        </Alert>
-                      )}
-
-                      <div className="space-y-1.5 sm:space-y-2">
-                        <Label
-                          htmlFor="reject-reason"
-                          className="text-xs sm:text-sm"
-                        >
-                          Rejection Reason (if rejecting)
-                        </Label>
-                        <Textarea
-                          id="reject-reason"
-                          placeholder="Provide a reason for rejection..."
-                          value={rejectReason}
-                          onChange={(e) => setRejectReason(e.target.value)}
-                          rows={3}
-                          className="text-xs sm:text-sm"
-                        />
-                      </div>
-
-                      <div className="flex gap-2 pt-2">
-                        <Button
-                          className="flex-1 bg-green-600 hover:bg-green-700 h-9 sm:h-10"
-                          // onClick={() => handleApprove(selectedLoan)}
-                          onClick={() => {
-                            handleLoanDecide(selectedLoan, "rejected");
-                            setViewDialogOpen(false);
-                          }}
-                          disabled={!canApprove}
-                        >
-                          <CheckCircle2 className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
-                          <span className="text-xs sm:text-sm">Approve</span>
-                        </Button>
-                        <Button
-                          variant="destructive"
-                          className="flex-1 h-9 sm:h-10"
-                          // onClick={() => handleReject(selectedLoan)}
-                          onClick={() => {
-                            handleLoanDecide(selectedLoan, "rejected");
-                            setViewDialogOpen(false);
-                          }}
-                        >
-                          <XCircle className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
-                          <span className="text-xs sm:text-sm">Reject</span>
-                        </Button>
-                      </div>
-                    </>
-                  );
-                })()}
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+                        <div className="flex gap-2 pt-2">
+                          <Button
+                            className="flex-1 bg-green-600 hover:bg-green-700 h-9 sm:h-10"
+                            // onClick={() => handleApprove(selectedLoan)}
+                            onClick={() => {
+                              handleLoanDecide(selectedLoan, "rejected");
+                              setViewDialogOpen(false);
+                            }}
+                            disabled={!canApprove}
+                          >
+                            <CheckCircle2 className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                            <span className="text-xs sm:text-sm">Approve</span>
+                          </Button>
+                          <Button
+                            variant="destructive"
+                            className="flex-1 h-9 sm:h-10"
+                            // onClick={() => handleReject(selectedLoan)}
+                            onClick={() => {
+                              handleLoanDecide(selectedLoan, "rejected");
+                              setViewDialogOpen(false);
+                            }}
+                          >
+                            <XCircle className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                            <span className="text-xs sm:text-sm">Reject</span>
+                          </Button>
+                        </div>
+                      </>
+                    );
+                  })()}
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+      </div>
     </div>
   );
 }
