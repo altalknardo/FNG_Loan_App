@@ -101,7 +101,10 @@ export default function App() {
   const [resetToken, setResetToken] = useState("");
   const [resetEmail, setResetEmail] = useState("");
   const [pendingVerificationPhone, setPendingVerificationPhone] = useState("");
-  const [activeTab, setActiveTab] = useState("dashboard");
+  // restore from localStorage, fallback to dashboard
+  const [activeTab, setActiveTab] = useState<string>(
+    () => localStorage.getItem("activeTab") || "dashboard"
+  );
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [kycStatus, setKycStatus] = useState<
@@ -222,6 +225,36 @@ export default function App() {
     window.addEventListener("navigate", handleNavigate);
     return () => window.removeEventListener("navigate", handleNavigate);
   }, [isAdmin]);
+
+  const mapPathToTab = (path: string, isAdminMode: boolean) => {
+    if (isAdminMode) {
+      if (path.startsWith("/admin/loans")) return "loan-approvals";
+      if (path.startsWith("/admin/revenue-analytics"))
+        return "revenue-analytics";
+      if (path === "/admin") return "admin-dashboard";
+      // fallback
+      return "admin-dashboard";
+    } else {
+      if (path === "/" || path === "") return "dashboard";
+      if (path.startsWith("/request-loan")) return "loans";
+      if (path.startsWith("/contribute")) return "contributions";
+      if (path.startsWith("/history")) return "history";
+      if (path.startsWith("/profile")) return "profile";
+      return "dashboard";
+    }
+  };
+
+  // keep activeTab in sync with the URL (runs on navigation and reload)
+  useEffect(() => {
+    const tab = mapPathToTab(location.pathname, isAdmin);
+    if (tab && tab !== activeTab) setActiveTab(tab);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname, isAdmin]);
+
+  // persist activeTab so a reload without route change still restores visual state
+  useEffect(() => {
+    localStorage.setItem("activeTab", activeTab);
+  }, [activeTab]);
 
   const checkKycStatus = () => {
     // In admin mode, bypass KYC check
@@ -408,12 +441,42 @@ export default function App() {
   ];
 
   const adminNavItems = [
-    { id: "admin-dashboard", label: "Dashboard", icon: LayoutDashboard },
-    { id: "revenue-analytics", label: "Revenue Analytics", icon: BarChart3 },
-    { id: "accounting-reports", label: "Accounting Reports", icon: Receipt },
-    { id: "customer-loan-report", label: "Customer Report", icon: Users },
-    { id: "reports", label: "Generate Reports", icon: FileText },
-    { id: "loan-approvals", label: "Loans", icon: FileCheck },
+    {
+      id: "admin-dashboard",
+      label: "Dashboard",
+      icon: LayoutDashboard,
+      route: "/admin",
+    },
+    {
+      id: "revenue-analytics",
+      label: "Revenue Analytics",
+      icon: BarChart3,
+      route: "/admin/revenue-analytics",
+    },
+    {
+      id: "accounting-reports",
+      label: "Accounting Reports",
+      icon: Receipt,
+      route: "/admin/accounting-reports",
+    },
+    {
+      id: "customer-loan-report",
+      label: "Customer Report",
+      icon: Users,
+      route: "/admin/",
+    },
+    {
+      id: "reports",
+      label: "Generate Reports",
+      icon: FileText,
+      route: "/admin/reports",
+    },
+    {
+      id: "loan-approvals",
+      label: "Loans",
+      icon: FileCheck,
+      route: "/admin/loans",
+    },
     { id: "loan-defaulters", label: "Loan Defaulters", icon: AlertTriangle },
     { id: "withdrawal-approvals", label: "Withdrawals", icon: DollarSign },
     { id: "upfront-refunds", label: "Deposit Refunds", icon: RefreshCw },
@@ -523,6 +586,10 @@ export default function App() {
   if (showSplash) {
     return <SplashScreen onComplete={handleSplashComplete} />;
   }
+
+  
+
+  console.log(activeTab);
 
   // Main routing structure
   return (
@@ -716,7 +783,26 @@ export default function App() {
             >
               {isAdmin ? (
                 // <AdminDashboardContent />
-                <DashboardDefault renderedContent={<AdminDashboardContent />} />
+                <DashboardDefault
+                  renderedContent={<AdminDashboard onNavigate={setActiveTab} />}
+                />
+              ) : (
+                <Navigate to="/" replace />
+              )}
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/admin/loans"
+          element={
+            <ProtectedRoute
+              isAuthenticated={isAuthenticated}
+              redirectTo="/admin/login"
+            >
+              {isAdmin ? (
+                // <AdminDashboardContent />
+                <DashboardDefault renderedContent={<LoanApprovals />} />
               ) : (
                 <Navigate to="/" replace />
               )}
@@ -733,26 +819,6 @@ export default function App() {
       <Toaster />
     </>
   );
-
-  // Dashboard Content Component
-  function DashboardContent() {
-    return (
-      <div className="">
-        {/* Main Content */}
-        <main
-          className={`mx-auto px-4 sm:px-6 py-4 sm:py-6 transition-all duration-300 ${
-            isAdmin
-              ? sidebarCollapsed
-                ? "lg:ml-16 max-w-7xl"
-                : "lg:ml-64 max-w-7xl"
-              : "max-w-md pb-20"
-          }`}
-        >
-          {isAdmin ? renderAdminContent() : renderUserContent()}
-        </main>
-      </div>
-    );
-  }
 
   function DashboardDefault({
     renderedContent,
@@ -779,6 +845,26 @@ export default function App() {
         setActiveTab={setActiveTab}
         adminNavItems={adminNavItems}
       />
+    );
+  }
+
+  // Dashboard Content Component
+  function DashboardContent() {
+    return (
+      <div className="">
+        {/* Main Content */}
+        <main
+          className={`mx-auto px-4 sm:px-6 py-4 sm:py-6 transition-all duration-300 ${
+            isAdmin
+              ? sidebarCollapsed
+                ? "lg:ml-16 max-w-7xl"
+                : "lg:ml-64 max-w-7xl"
+              : "max-w-md pb-20"
+          }`}
+        >
+          {isAdmin ? renderAdminContent() : renderUserContent()}
+        </main>
+      </div>
     );
   }
 
@@ -897,7 +983,7 @@ export default function App() {
             sidebarCollapsed ? "lg:ml-16 max-w-7xl" : "lg:ml-64 max-w-7xl"
           }`}
         >
-          {renderAdminContent()}
+          {isAdmin ? renderAdminContent() : renderUserContent()}
         </main>
 
         {/* Admin Sidebar - Desktop */}
