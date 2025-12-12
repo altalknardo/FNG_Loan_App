@@ -625,28 +625,26 @@ export function LoanApprovals() {
     const upfrontApplication = application.upfrontPaymentStatus === "pending";
 
     return (
-      <Card className="p-4">
-        <div className="space-y-4">
-          <div className="flex items-start justify-between">
-            <div className="flex items-center gap-3">
-              <Avatar>
-                <AvatarFallback>
+      <Card className="p-3 sm:p-4">
+        <div className="space-y-3 sm:space-y-4">
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+              <Avatar className="h-8 w-8 sm:h-10 sm:w-10 flex-shrink-0">
+                <AvatarFallback className="text-xs sm:text-sm">
                   {application?.userId?.name
                     .split(" ")
                     .map((n) => n[0])
                     .join("")}
                 </AvatarFallback>
               </Avatar>
-              <div>
-                <div className="flex items-center gap-2">
-                  <h4>{application.userId?.name}</h4>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1 sm:gap-2 flex-wrap">
+                  <h4 className="text-sm sm:text-base font-medium truncate">
+                    {application.userId?.name}
+                  </h4>
                   {application.loanType &&
                     getLoanTypeBadge(application.loanType)}
-                  {/* {getLoanTypeBadge("sme")} */}
                 </div>
-                {/* <p className="text-sm text-gray-600">
-                {application?.userId?._id}
-              </p> */}
               </div>
             </div>
             {application?.status === "draft" && (
@@ -658,6 +656,7 @@ export function LoanApprovals() {
                     ? "default"
                     : "secondary"
                 }
+                className="text-[10px] sm:text-xs flex-shrink-0"
               >
                 {application?.upfrontPaymentStatus === "pending"
                   ? "Pending"
@@ -670,15 +669,15 @@ export function LoanApprovals() {
             )}
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-2 sm:gap-4">
             <div>
-              <p className="text-xs text-gray-600">
+              <p className="text-[10px] sm:text-xs text-gray-600">
                 {application?.upfrontPaymentStatus === "paid" &&
                 application?.status !== "draft"
                   ? "Loan Amount"
                   : "Upfront Amount"}
               </p>
-              <p className="text-lg">
+              <p className="text-base sm:text-lg font-semibold">
                 ₦
                 {application?.upfrontPaymentStatus === "paid" &&
                 application?.status !== "draft"
@@ -687,27 +686,17 @@ export function LoanApprovals() {
               </p>
             </div>
             <div>
-              <p className="text-xs text-gray-600">Period</p>
-              <p className="text-lg">{application?.repaymentPeriod || ""}</p>
+              <p className="text-[10px] sm:text-xs text-gray-600">Period</p>
+              <p className="text-base sm:text-lg font-semibold">
+                {application?.repaymentPeriod || ""}
+              </p>
             </div>
-            {/* <div>
-            <p className="text-xs text-gray-600">Credit Score</p>
-            <p
-              className={`text-lg ${
-                application.creditScore >= 700
-                  ? "text-green-600"
-                  : application.creditScore >= 650
-                  ? "text-orange-600"
-                  : "text-red-600"
-              }`}
-            >
-              {application.creditScore}
-            </p>
-          </div> */}
 
             <div>
-              <p className="text-xs text-gray-600">Applied Date</p>
-              <p className="text-sm">
+              <p className="text-[10px] sm:text-xs text-gray-600">
+                Applied Date
+              </p>
+              <p className="text-xs sm:text-sm">
                 {application.createdAt
                   ? new Date(application?.createdAt).toLocaleDateString()
                   : ""}
@@ -716,89 +705,64 @@ export function LoanApprovals() {
             {application?.upfrontPaymentStatus === "paid" &&
               application?.status !== "draft" && (
                 <div>
-                  <p className="text-xs text-gray-600">Purpose</p>
-                  <p className="text-sm">{application.loanPurpose}</p>
+                  <p className="text-[10px] sm:text-xs text-gray-600">
+                    Purpose
+                  </p>
+                  <p className="text-xs sm:text-sm truncate">
+                    {application.loanPurpose}
+                  </p>
                 </div>
               )}
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex flex-col sm:flex-row gap-2">
             {application?.upfrontPaymentStatus === "paid" &&
               application?.status !== "draft" && (
                 <Button
                   variant="outline"
                   size="sm"
-                  className="flex-1"
+                  className="w-full sm:w-auto text-xs sm:text-sm h-8 sm:h-9"
                   onClick={() => handleViewDetails(application)}
-                  style={{
-                    width: "33%",
-                  }}
                 >
-                  <Eye className="h-4 w-4 mr-2" />
+                  <Eye className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
                   View Details
                 </Button>
               )}
-
-            {/* {application.status === "pending" && ( */}
 
             {((application?.status === "draft" &&
               application?.upfrontPaymentStatus === "pending") ||
               application?.status === "pending") && (
               <>
-                <div
-                  className="w-1/4 mx-auto"
-                  style={{
-                    width:
-                      application?.upfrontPaymentStatus === "paid" &&
-                      application?.status !== "draft"
-                        ? "33%"
-                        : "25%",
+                <Button
+                  size="sm"
+                  className="w-full sm:w-auto bg-green-600 hover:bg-green-700 text-xs sm:text-sm h-8 sm:h-9"
+                  onClick={() => {
+                    if (application?.status === "draft")
+                      handleUpfrontDecide(application, "approved");
+                    else handleLoanDecide(application, "approved");
                   }}
                 >
-                  <Button
-                    size="sm"
-                    className="w-full bg-green-600 hover:bg-green-700"
-                    onClick={() => {
-                      if (application?.status === "draft")
-                        handleUpfrontDecide(application, "approved");
-                      else handleLoanDecide(application, "approved");
-                    }}
-                  >
-                    <CheckCircle2 className="h-4 w-4 mr-2" />
-                    {application?.status === "draft" ? "Confirm" : "Approve"}
-                  </Button>
-                </div>
-                <div
-                  className="w-1/4 mx-auto"
-                  style={{
-                    width:
-                      application?.upfrontPaymentStatus === "paid" &&
-                      application?.status !== "draft"
-                        ? "33%"
-                        : "25%",
+                  <CheckCircle2 className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                  {application?.status === "draft" ? "Confirm" : "Approve"}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  className="w-full sm:w-auto text-xs sm:text-sm h-8 sm:h-9"
+                  onClick={() => {
+                    if (application?.status === "draft")
+                      handleUpfrontDecide(application, "rejected");
+                    else {
+                      setSelectedLoan(application);
+                      setViewDialogOpen(true);
+                    }
                   }}
                 >
-                  <Button
-                    size="sm"
-                    variant="destructive"
-                    className="w-full"
-                    onClick={() => {
-                      if (application?.status === "draft")
-                        handleUpfrontDecide(application, "rejected");
-                      else {
-                        setSelectedLoan(application);
-                        setViewDialogOpen(true);
-                      }
-                    }}
-                  >
-                    <XCircle className="h-4 w-4 mr-2" />
-                    Reject
-                  </Button>
-                </div>
+                  <XCircle className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                  Reject
+                </Button>
               </>
             )}
-
-            {/* )} */}
           </div>
         </div>
       </Card>
@@ -814,128 +778,188 @@ export function LoanApprovals() {
         </p>
       </div>
 
-      <div className="grid grid-cols-4 gap-4">
-        <Card className="p-4">
-          <div className="flex items-center gap-3">
-            <ClipboardCheck className="h-8 w-8 text-orange-600" />
-            <div>
-              <p className="text-2xl">
+      {/* Stats Cards Start  */}
+      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 md:gap-4">
+        <Card className="p-3 sm:p-4">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <ClipboardCheck className="h-6 w-6 sm:h-8 sm:w-8 text-orange-600 flex-shrink-0" />
+            <div className="min-w-0">
+              <p className="text-xl sm:text-2xl font-semibold">
                 {isLoading
                   ? "..."
                   : applications?.upfrontCostLoanRequests?.filter(
                       (item: any) => item.upfrontPaymentStatus === "pending"
                     ).length || 0}
               </p>
-              <p className="text-sm text-gray-600">Upfront Confirmations</p>
+              <p className="text-[10px] sm:text-sm text-gray-600 leading-tight">
+                Upfront Confirmations
+              </p>
             </div>
           </div>
         </Card>
-        <Card className="p-4">
-          <div className="flex items-center gap-3">
-            <Clock className="h-8 w-8 text-orange-600" />
-            <div>
-              <p className="text-2xl">
+
+        <Card className="p-3 sm:p-4">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <Clock className="h-6 w-6 sm:h-8 sm:w-8 text-orange-600 flex-shrink-0" />
+            <div className="min-w-0">
+              <p className="text-xl sm:text-2xl font-semibold">
                 {isLoading
                   ? "..."
                   : applications?.pendingLoanRequests?.length || 0}
               </p>
-              <p className="text-sm text-gray-600">Pending</p>
+              <p className="text-[10px] sm:text-sm text-gray-600 leading-tight">
+                Pending
+              </p>
             </div>
           </div>
         </Card>
-        <Card className="p-4">
-          <div className="flex items-center gap-3">
-            <CheckCircle2 className="h-8 w-8 text-green-600" />
-            <div>
-              <p className="text-2xl">
+
+        <Card className="p-3 sm:p-4">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <CheckCircle2 className="h-6 w-6 sm:h-8 sm:w-8 text-green-600 flex-shrink-0" />
+            <div className="min-w-0">
+              <p className="text-xl sm:text-2xl font-semibold">
                 {isLoading
                   ? "..."
                   : applications?.approvedLoanRequests?.length || 0}
               </p>
-              <p className="text-sm text-gray-600">Approved</p>
+              <p className="text-[10px] sm:text-sm text-gray-600 leading-tight">
+                Approved
+              </p>
             </div>
           </div>
         </Card>
-        <Card className="p-4">
-          <div className="flex items-center gap-3">
-            <XCircle className="h-8 w-8 text-red-600" />
-            <div>
-              <p className="text-2xl">
+
+        <Card className="p-3 sm:p-4">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <XCircle className="h-6 w-6 sm:h-8 sm:w-8 text-red-600 flex-shrink-0" />
+            <div className="min-w-0">
+              <p className="text-xl sm:text-2xl font-semibold">
                 {isLoading
                   ? "..."
                   : applications?.regectedLoanRequests?.length || 0}
               </p>
-              <p className="text-sm text-gray-600">Rejected</p>
+              <p className="text-[10px] sm:text-sm text-gray-600 leading-tight">
+                Rejected
+              </p>
             </div>
           </div>
         </Card>
       </div>
 
+      {/* Stats Cards End  */}
+
       <Tabs defaultValue="upfront" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="upfront">
-            Upfront Confirmations (
-            {applications?.upfrontCostLoanRequests?.filter(
-              (item: any) => item.upfrontPaymentStatus === "pending"
-            ).length || 0}
-            )
+        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 gap-1 h-auto p-1">
+          <TabsTrigger
+            value="upfront"
+            className="text-[12px] sm:text-xs md:text-sm px-1 sm:px-3 py-2 data-[state=active]:text-xs sm:data-[state=active]:text-sm"
+          >
+            <span className="hidden sm:inline">Upfront Confirmations</span>
+            <span className="sm:hidden">Upfront</span>
+            <span className="ml-1">
+              (
+              {applications?.upfrontCostLoanRequests?.filter(
+                (item: any) => item.upfrontPaymentStatus === "pending"
+              ).length || 0}
+              )
+            </span>
           </TabsTrigger>
-          <TabsTrigger value="pending">
-            Pending ({applications?.pendingLoanRequests?.length || 0})
+          <TabsTrigger
+            value="pending"
+            className="text-[12px] sm:text-xs md:text-sm px-1 sm:px-3 py-2"
+          >
+            Pending
+            <span className="ml-1">
+              ({applications?.pendingLoanRequests?.length || 0})
+            </span>
           </TabsTrigger>
-          <TabsTrigger value="approved">
-            Approved ({applications?.approvedLoanRequests?.length || 0})
+          <TabsTrigger
+            value="approved"
+            className="text-[12px] sm:text-xs md:text-sm px-1 sm:px-3 py-2"
+          >
+            Approved
+            <span className="ml-1">
+              ({applications?.approvedLoanRequests?.length || 0})
+            </span>
           </TabsTrigger>
-          <TabsTrigger value="rejected">
-            Rejected ({applications?.regectedLoanRequests?.length || 0})
+          <TabsTrigger
+            value="rejected"
+            className="text-[12px] sm:text-xs md:text-sm px-1 sm:px-3 py-2"
+          >
+            Rejected
+            <span className="ml-1">
+              ({applications?.regectedLoanRequests?.length || 0})
+            </span>
           </TabsTrigger>
         </TabsList>
+
         {isLoading ? (
           <div className="flex justify-center my-4">
             <BeatLoader />
           </div>
         ) : (
           <>
-            <TabsContent value="upfront" className="space-y-4 mt-4">
+            <TabsContent
+              value="upfront"
+              className="space-y-2 sm:space-y-4 mt-3 sm:mt-4"
+            >
               {applications?.upfrontCostLoanRequests?.map((app: any) => (
                 <ApplicationCard key={app.id} application={app} />
               ))}
               {applications?.upfrontCostLoanRequests?.length === 0 && (
-                <Card className="p-8 text-center">
-                  <p className="text-gray-500">No pending applications</p>
+                <Card className="p-4 sm:p-8 text-center">
+                  <p className="text-sm sm:text-base text-gray-500">
+                    No pending applications
+                  </p>
                 </Card>
               )}
             </TabsContent>
 
-            <TabsContent value="pending" className="space-y-4 mt-4">
+            <TabsContent
+              value="pending"
+              className="space-y-2 sm:space-y-4 mt-3 sm:mt-4"
+            >
               {applications?.pendingLoanRequests?.map((app: any) => (
                 <ApplicationCard key={app.id} application={app} />
               ))}
               {applications?.pendingLoanRequests?.length === 0 && (
-                <Card className="p-8 text-center">
-                  <p className="text-gray-500">No pending applications</p>
+                <Card className="p-4 sm:p-8 text-center">
+                  <p className="text-sm sm:text-base text-gray-500">
+                    No pending applications
+                  </p>
                 </Card>
               )}
             </TabsContent>
 
-            <TabsContent value="approved" className="space-y-4 mt-4">
+            <TabsContent
+              value="approved"
+              className="space-y-2 sm:space-y-4 mt-3 sm:mt-4"
+            >
               {applications?.approvedLoanRequests?.map((app: any) => (
                 <ApplicationCard key={app._id} application={app} />
               ))}
               {applications?.approvedLoanRequests?.length === 0 && (
-                <Card className="p-8 text-center">
-                  <p className="text-gray-500">No pending applications</p>
+                <Card className="p-4 sm:p-8 text-center">
+                  <p className="text-sm sm:text-base text-gray-500">
+                    No approved applications
+                  </p>
                 </Card>
               )}
             </TabsContent>
 
-            <TabsContent value="rejected" className="space-y-4 mt-4">
+            <TabsContent
+              value="rejected"
+              className="space-y-2 sm:space-y-4 mt-3 sm:mt-4"
+            >
               {applications?.regectedLoanRequests?.map((app: any) => (
                 <ApplicationCard key={app._id} application={app} />
               ))}
               {applications?.regectedLoanRequests?.length === 0 && (
-                <Card className="p-8 text-center">
-                  <p className="text-gray-500">No pending applications</p>
+                <Card className="p-4 sm:p-8 text-center">
+                  <p className="text-sm sm:text-base text-gray-500">
+                    No rejected applications
+                  </p>
                 </Card>
               )}
             </TabsContent>
