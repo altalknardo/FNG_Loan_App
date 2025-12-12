@@ -2336,7 +2336,7 @@ export function LoanSection() {
           </div>
         ) : (
           <div
-            className="overflow-y-auto space-y-4"
+            className="overflow-y-auto space-y-2 sm:space-y-4"
             style={{ maxHeight: "400px" }}
           >
             {loanRequests?.filter((item: any) => item?.status === "draft")
@@ -2349,10 +2349,10 @@ export function LoanSection() {
                       ? loanTypes[loan.loanType as LoanType]?.name
                       : "Loan";
                     return (
-                      <Card key={loan._id} className="p-6">
-                        <div className="space-y-4">
+                      <Card key={loan._id} className="p-3 sm:p-6">
+                        <div className="space-y-3 sm:space-y-4">
                           <div
-                            className="flex items-start justify-between"
+                            className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3"
                             onClick={() => {
                               if (loan?.upfrontPaymentStatus === "Confirmed") {
                                 setLoanData(loan);
@@ -2360,27 +2360,27 @@ export function LoanSection() {
                               }
                             }}
                           >
-                            <div className="flex gap-3">
-                              <div className="bg-green-100 p-2 rounded-full h-fit">
-                                <CheckCircle2 className="h-5 w-5 text-green-600" />
+                            <div className="flex gap-2 sm:gap-3 flex-1 min-w-0">
+                              <div className="bg-green-100 p-1.5 sm:p-2 rounded-full h-fit flex-shrink-0">
+                                <CheckCircle2 className="h-4 w-4 sm:h-5 sm:w-5 text-green-600" />
                               </div>
-                              <div>
-                                <div className="flex items-center gap-2">
-                                  <h4>Loan Type:</h4>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-1 sm:gap-2 flex-wrap">
+                                  <h4 className="text-sm sm:text-base font-medium">Loan Type:</h4>
                                   {loan.loanType && (
                                     <Badge
                                       variant="outline"
-                                      className="text-xs"
+                                      className="text-[10px] sm:text-xs"
                                     >
                                       {loanTypeLabel}
                                     </Badge>
                                   )}
                                 </div>
-                                <p className="text-sm text-gray-600">
+                                <p className="text-xs sm:text-sm text-gray-600 mt-1">
                                   Upfront Paid:{" "}
                                   {formatCurrency(loan.upfrontCost)}
                                 </p>
-                                <p className="text-xs text-gray-500">
+                                <p className="text-[10px] sm:text-xs text-gray-500 mt-0.5">
                                   Paid on:{" "}
                                   {loan.createdAt
                                     ? new Date(
@@ -2388,9 +2388,9 @@ export function LoanSection() {
                                       ).toLocaleDateString()
                                     : ""}
                                 </p>
-                                {loan?.upfrontPaymentStatus === "paid" && (
-                                  <div className="py-4 flex flex-col gap-2">
-                                    <p className="text-xs text-green-600">
+                                {(loan?.upfrontPaymentStatus === "paid" || loan?.upfrontPaymentStatus === "approved") && (
+                                  <div className="pt-2 sm:pt-4 flex flex-col gap-1.5 sm:gap-2">
+                                    <p className="text-[10px] sm:text-xs text-green-600 font-medium">
                                       You can apply for loan now
                                     </p>
 
@@ -2411,7 +2411,7 @@ export function LoanSection() {
                                     >
                                       <DialogTrigger asChild> */}
                                     <Button
-                                      className="w-full bg-green-600 text-sm hover:bg-green-700"
+                                      className="w-full bg-green-600 text-xs sm:text-sm hover:bg-green-700 h-8 sm:h-10"
                                       onClick={() => {
                                         // Set loan data first, then open dialog
                                         // onOpenChange will check and not reset if loanData has refNo
@@ -2458,10 +2458,10 @@ export function LoanSection() {
                                 )}
                               </div>
                             </div>
-                            <Badge className="bg-gray-100 text-gray-700">
+                            <Badge className="bg-gray-100 text-gray-700 text-[10px] sm:text-xs self-start sm:self-auto flex-shrink-0">
                               {loan?.upfrontPaymentStatus === "pending"
                                 ? "Pending Confirmation"
-                                : loan?.upfrontPaymentStatus === "paid"
+                                : (loan?.upfrontPaymentStatus === "paid" || loan?.upfrontPaymentStatus === "approved")
                                 ? "Confirmed"
                                 : loan?.upfrontPaymentStatus === "rejected"
                                 ? "Rejected"
