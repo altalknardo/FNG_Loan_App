@@ -36,6 +36,8 @@ import {
   Headphones,
   Receipt,
   AlertTriangle,
+  ArrowLeftToLine,
+  ArrowRightToLineIcon,
 } from "lucide-react";
 
 // DashboardLayout.tsx
@@ -197,11 +199,24 @@ export function DashboardLayout({
       {/* ...REMOVE hard-coded renderAdminContent/renderUserContent here... */}
 
       <main
+      // className={`mx-auto px-4 sm:px-6 py-4 sm:py-6 transition-all duration-300 ${
+      //       isAdmin
+      //         ? sidebarCollapsed
+      //           ? "lg:ml-16 max-w-7xl"
+      //           : "lg:ml-64 max-w-7xl"
+      //         : "max-w-md pb-20"
+      //     }`}
         className={`mx-auto py-4 sm:py-6 transition-all duration-300 ${
-          isAdmin ? "max-w-7xl" : "max-w-md pb-20"
+          // isAdmin ? "max-w-7xl" : "max-w-md pb-20"
+          isAdmin
+            ? props?.sidebarCollapsed
+              ? "lg:ml-16 max-w-7xl px-4 sm:px-6"
+              : "lg:ml-64 max-w-7xl px-4 sm:px-6"
+            :
+            "max-w-md pb-20"
         }`}
       >
-        {renderContent()} {/* 🔥 Render whatever page you pass */}
+        {renderContent()}{" "}
       </main>
 
       {/* Bottom Navigation - Only for User Mode */}
@@ -217,7 +232,7 @@ export function DashboardLayout({
                     key={item.id}
                     onClick={() => {
                       navigate(item.route);
-                      props?.setActiveTab(item.id)
+                      props?.setActiveTab(item.id);
                     }}
                     className={`flex flex-col items-center gap-1 py-3 px-4 transition-colors ${
                       isActive
@@ -245,26 +260,34 @@ export function DashboardLayout({
           {/* Collapse Toggle Button */}
           <button
             onClick={() => props?.setSidebarCollapsed(!props?.sidebarCollapsed)}
-            className="absolute -right-2 top-10 sm:top-24 bg-white border rounded-full p-1.5 shadow-md hover:shadow-lg transition-shadow"
+            style={{
+              marginLeft: props?.sidebarCollapsed ? "20px" : "0px",
+              // left: props?.sidebarCollapsed ? "5px" : "0px",
+              right: props?.sidebarCollapsed ? "4px" : "",
+            }}
+            className="absolute right-3 top-5 sm:top-5 bg-white border rounded-full p-1.5 hover:shadow-lg transition-shadow"
             title={
               props?.sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"
             }
           >
             {props?.sidebarCollapsed ? (
-              <Menu className="h-4 w-4 text-gray-600" />
+              <ArrowRightToLineIcon className="h-4 w-4 text-gray-600" />
             ) : (
-              <X className="h-4 w-4 text-gray-600" />
+              <ArrowLeftToLine className="h-4 w-4 text-gray-600" />
             )}
           </button>
 
-          <nav className="p-4 space-y-2">
+          <nav className="p-4 space-y-2 mt-6">
             {props?.adminNavItems.map((item: any) => {
               const Icon = item.icon;
               const isActive = props?.activeTab === item.id;
               return (
                 <button
                   key={item.id}
-                  onClick={() => props?.setActiveTab(item.id)}
+                  onClick={() => {
+                    navigate(item.route);
+                    props?.setActiveTab(item.id);
+                  }}
                   className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
                     isActive
                       ? "bg-blue-600 text-white"

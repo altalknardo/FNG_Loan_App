@@ -1,4 +1,4 @@
-import { use, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Card } from "./ui/card";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
@@ -56,7 +56,12 @@ import {
   calculateLoanRepayment,
   calculateUpfrontCosts,
 } from "../lib/utils";
-import { ApiError, getLoanData, upfrontTransfer } from "../lib/loan-api";
+import {
+  ApiError,
+  applyForLoan,
+  getLoanData,
+  upfrontTransfer,
+} from "../lib/loan-api";
 import ThreeDotsLoader from "./ui/loader";
 
 interface PaymentMethod {
@@ -176,6 +181,7 @@ export function LoanSection() {
     upfrontCost: "",
     paymentType: "manual",
     file: null,
+    upfrontPaymentStatus: "draft",
   });
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [acceptedGuarantorTerms, setAcceptedGuarantorTerms] = useState(false);
@@ -574,10 +580,10 @@ export function LoanSection() {
   };
 
   const handleSliderChange = (value: number[]) => {
-    setLoanData({
-      ...loanData,
+    setLoanData((prev: any) => ({
+      ...prev,
       loanAmount: value[0].toString(),
-    });
+    }));
     setLoanAmount(value);
     setLoanAmountInput(value[0].toString());
   };
@@ -607,7 +613,6 @@ export function LoanSection() {
     });
     localStorage.setItem("smsNotifications", JSON.stringify(notifications));
 
-    console.log(`SMS sent to ${guarantorPhone}: ${smsContent}`);
     return true;
   };
 
@@ -633,7 +638,6 @@ export function LoanSection() {
         (submission: any) =>
           submission.nin === nin && submission.status === "approved"
       );
-      console.log(matchingCustomer, "matching");
 
       if (matchingCustomer) {
         // Auto-populate guarantor information
@@ -706,7 +710,12 @@ export function LoanSection() {
     }
   };
 
-  const resetStates = () => {
+  // Helper function to reset form fields without closing dialog
+  const resetFormFields = () => {
+    const config = loanTypes[selectedLoanType];
+    setLoanAmount([config.minAmount]);
+    setLoanAmountInput(config.minAmount.toString());
+    setLoanPeriod(config.defaultPeriod);
     setLoanPurpose("");
     setGuarantorNIN("");
     setGuarantorName("");
@@ -722,12 +731,33 @@ export function LoanSection() {
     setTermsAccepted(false);
     setPayUpfrontFromContributions(false);
     setUpfrontPaidInDialog(false);
+    setLoanData({
+      loanType: selectedLoanType,
+      loanAmount: config.minAmount.toString(),
+      repaymentPeriod: config.defaultPeriod + " weeks",
+      loanPurpose: "",
+      gurantorInformation: {
+        gNIN: "",
+        gFullName: "",
+        gPhone: "",
+        gAddress: "",
+        gEmployer: "",
+        gRelationship: "",
+      },
+      refNo: "",
+      upfrontCost: "",
+      paymentType: "manual",
+      file: null,
+      upfrontPaymentStatus: "draft",
+    });
+  };
+
+  const resetStates = () => {
+    resetFormFields();
     setIsDialogOpen(false);
   };
 
   const handleApplyLoan = async (type: string) => {
-    console.log(type);
-
     // if (type === "loan") {
     // Validate loan purpose
     if (!loanPurpose) {
@@ -762,114 +792,120 @@ export function LoanSection() {
       return;
     }
     // Validate upfront payment - MUST be paid before submission
-    if (!payUpfrontFromContributions && !upfrontPaidInDialog) {
-      toast.error(
-        "Please pay upfront costs before submitting your application"
-      );
-      return;
-    }
+    // if (!payUpfrontFromContributions && !upfrontPaidInDialog) {
+    //   toast.error(
+    //     "Please pay upfront costs before submitting your application"
+    //   );
+    //   return;
+    // }
     // Handle upfront payment from contributions
     let upfrontPaid = false;
     let paidFrom = null;
 
-    if (upfrontPaidInDialog) {
-      // Payment was made via payment dialog (bank transfer)
-      upfrontPaid = true;
-      paidFrom = "bank_transfer";
+    // if (upfrontPaidInDialog) {
+    //   // Payment was made via payment dialog (bank transfer)
+    //   upfrontPaid = true;
+    //   paidFrom = "bank_transfer";
 
-      // Add deposit to loan deposits (refundable)
-      const currentLoanDeposits = parseFloat(
-        localStorage.getItem("loanDeposits") || "0"
-      );
-      const newLoanDeposits = currentLoanDeposits + upfrontCosts.deposit;
-      localStorage.setItem("loanDeposits", newLoanDeposits.toString());
+    //   // Add deposit to loan deposits (refundable)
+    //   const currentLoanDeposits = parseFloat(
+    //     localStorage.getItem("loanDeposits") || "0"
+    //   );
+    //   const newLoanDeposits = currentLoanDeposits + upfrontCosts.deposit;
+    //   localStorage.setItem("loanDeposits", newLoanDeposits.toString());
 
-      // Add insurance to company insurance balance
-      const currentInsuranceBalance = parseFloat(
-        localStorage.getItem("insuranceBalance") || "0"
-      );
-      const newInsuranceBalance =
-        currentInsuranceBalance + upfrontCosts.insurance;
-      localStorage.setItem("insuranceBalance", newInsuranceBalance.toString());
-    } else if (payUpfrontFromContributions) {
-      const contributionBalance = parseFloat(
-        localStorage.getItem("contributionBalance") || "0"
-      );
-      if (contributionBalance >= upfrontCosts.totalUpfront) {
-        // Deduct upfront costs from contribution balance
-        const newContributionBalance =
-          contributionBalance - upfrontCosts.totalUpfront;
-        localStorage.setItem(
-          "contributionBalance",
-          newContributionBalance.toString()
-        );
+    //   // Add insurance to company insurance balance
+    //   const currentInsuranceBalance = parseFloat(
+    //     localStorage.getItem("insuranceBalance") || "0"
+    //   );
+    //   const newInsuranceBalance =
+    //     currentInsuranceBalance + upfrontCosts.insurance;
+    //   localStorage.setItem("insuranceBalance", newInsuranceBalance.toString());
+    // }
+    // else if (payUpfrontFromContributions) {
+    // const contributionBalance = parseFloat(
+    //   localStorage.getItem("contributionBalance") || "0"
+    // );
+    // if (contributionBalance >= upfrontCosts.totalUpfront) {
+    //   // Deduct upfront costs from contribution balance
+    //   const newContributionBalance =
+    //     contributionBalance - upfrontCosts.totalUpfront;
+    //   localStorage.setItem(
+    //     "contributionBalance",
+    //     newContributionBalance.toString()
+    //   );
 
-        // Add deposit to loan deposits (refundable)
-        const currentLoanDeposits = parseFloat(
-          localStorage.getItem("loanDeposits") || "0"
-        );
-        const newLoanDeposits = currentLoanDeposits + upfrontCosts.deposit;
-        localStorage.setItem("loanDeposits", newLoanDeposits.toString());
+    //   // Add deposit to loan deposits (refundable)
+    //   const currentLoanDeposits = parseFloat(
+    //     localStorage.getItem("loanDeposits") || "0"
+    //   );
+    //   const newLoanDeposits = currentLoanDeposits + upfrontCosts.deposit;
+    //   localStorage.setItem("loanDeposits", newLoanDeposits.toString());
 
-        // Add insurance to company insurance balance
-        const currentInsuranceBalance = parseFloat(
-          localStorage.getItem("insuranceBalance") || "0"
-        );
-        const newInsuranceBalance =
-          currentInsuranceBalance + upfrontCosts.insurance;
-        localStorage.setItem(
-          "insuranceBalance",
-          newInsuranceBalance.toString()
-        );
+    //   // Add insurance to company insurance balance
+    //   const currentInsuranceBalance = parseFloat(
+    //     localStorage.getItem("insuranceBalance") || "0"
+    //   );
+    //   const newInsuranceBalance =
+    //     currentInsuranceBalance + upfrontCosts.insurance;
+    //   localStorage.setItem(
+    //     "insuranceBalance",
+    //     newInsuranceBalance.toString()
+    //   );
 
-        upfrontPaid = true;
-        paidFrom = "contribution_balance";
+    //   upfrontPaid = true;
+    //   paidFrom = "contribution_balance";
 
-        // Record transaction
-        const transactions = JSON.parse(
-          localStorage.getItem("transactions") || "[]"
-        );
-        transactions.unshift({
-          id: Date.now(),
-          type: "upfront_payment",
-          amount: -upfrontCosts.totalUpfront,
-          date: new Date().toISOString().split("T")[0],
-          description: `Loan Upfront Payment (${currentLoanConfig.name})`,
-          status: "completed",
-          breakdown: {
-            deposit: upfrontCosts.deposit,
-            insurance: upfrontCosts.insurance,
-            serviceCharge: upfrontCosts.serviceCharge,
-          },
-        });
-        localStorage.setItem("transactions", JSON.stringify(transactions));
+    //   // Record transaction
+    //   const transactions = JSON.parse(
+    //     localStorage.getItem("transactions") || "[]"
+    //   );
+    //   transactions.unshift({
+    //     id: Date.now(),
+    //     type: "upfront_payment",
+    //     amount: -upfrontCosts.totalUpfront,
+    //     date: new Date().toISOString().split("T")[0],
+    //     description: `Loan Upfront Payment (${currentLoanConfig.name})`,
+    //     status: "completed",
+    //     breakdown: {
+    //       deposit: upfrontCosts.deposit,
+    //       insurance: upfrontCosts.insurance,
+    //       serviceCharge: upfrontCosts.serviceCharge,
+    //     },
+    //   });
+    //   localStorage.setItem("transactions", JSON.stringify(transactions));
 
-        // Trigger balance update
-        window.dispatchEvent(new Event("balanceUpdated"));
-      }
-    }
+    //   // Trigger balance update
+    //   window.dispatchEvent(new Event("balanceUpdated"));
+    // }
+    // }
 
     // Store loan application with upfront costs
     const loanApplications = JSON.parse(
       localStorage.getItem("loanApplications") || "[]"
     );
     const newApplication = {
-      id: Date.now(),
+      refNo: loanData?.refNo,
+      loanAmount: loanAmount[0],
+      repaymentPeriod: parseInt(loanPeriod) + " weeks",
+      // interestRate: interestRateDecimal,
+      // totalRepayment: loanCalculation.totalRepayment,
+      // weeklyPayment: loanCalculation.weeklyPayment,
       loanType: selectedLoanType,
-      loanTypeName: currentLoanConfig.name,
-      principal: loanAmount[0],
-      period: parseInt(loanPeriod),
-      purpose: loanPurpose,
-      upfrontCosts: {
-        deposit: upfrontCosts.deposit,
-        insurance: upfrontCosts.insurance,
-        insuranceRate: upfrontCosts.insuranceRate,
-        serviceCharge: upfrontCosts.serviceCharge,
-        totalUpfront: upfrontCosts.totalUpfront,
-        paid: upfrontPaid,
-        paidAt: upfrontPaid ? new Date().toISOString() : null,
-        paidFrom: paidFrom,
-      },
+      // loanType: currentLoanConfig.name,
+      // principal: loanAmount[0],
+      // period: parseInt(loanPeriod),
+      loanPurpose: loanPurpose,
+      // upfrontCosts: {
+      //   deposit: upfrontCosts.deposit,
+      //   insurance: upfrontCosts.insurance,
+      //   insuranceRate: upfrontCosts.insuranceRate,
+      //   serviceCharge: upfrontCosts.serviceCharge,
+      //   totalUpfront: upfrontCosts.totalUpfront,
+      //   paid: upfrontPaid,
+      //   paidAt: upfrontPaid ? new Date().toISOString() : null,
+      //   paidFrom: paidFrom,
+      // },
       guarantor: {
         nin: guarantorNIN,
         name: guarantorName,
@@ -881,71 +917,114 @@ export function LoanSection() {
         isRegisteredCustomer: isGuarantorRegistered,
         customerId: guarantorCustomerId,
       },
-      termsAccepted: true,
-      termsAcceptedAt: new Date().toISOString(),
-      submittedAt: new Date().toISOString(),
+      // termsAccepted: true,
+      // termsAcceptedAt: new Date().toISOString(),
+      // submittedAt: new Date().toISOString(),
       status: "pending",
     };
-    loanApplications.push(newApplication);
-    localStorage.setItem("loanApplications", JSON.stringify(loanApplications));
-
-    // Update guarantor records if they are a registered customer
-    if (isGuarantorRegistered && guarantorCustomerId) {
-      const guarantorRecords = JSON.parse(
-        localStorage.getItem("guarantorRecords") || "[]"
-      );
-      guarantorRecords.push({
-        id: Date.now(),
-        guarantorNIN: guarantorNIN,
-        guarantorCustomerId: guarantorCustomerId,
-        guarantorName: guarantorName,
-        loanApplicationId: newApplication.id,
-        borrowerName: "Current User", // In production, use actual borrower name
-        loanAmount: loanAmount[0],
-        loanType: currentLoanConfig.name,
-        status: "active", // active, completed, defaulted
-        guaranteedAt: new Date().toISOString(),
-      });
-      localStorage.setItem(
-        "guarantorRecords",
-        JSON.stringify(guarantorRecords)
-      );
-    }
-
-    // Send SMS notification to guarantor
+    setIsLoading(true);
     try {
-      sendGuarantorSMS(guarantorPhone, guarantorName, loanAmount[0]);
-      toast.success(
-        `${currentLoanConfig.name} application submitted! Guarantor has been notified via SMS.`
-      );
-    } catch (error) {
-      toast.success(
-        `${currentLoanConfig.name} application submitted! You'll receive a notification within 24 hours.`
-      );
-    }
+      // Call API to login
+      const response = await applyForLoan(newApplication);
 
-    // Show appropriate message about upfront costs
-    if (upfrontPaid) {
-      if (paidFrom === "contribution_balance") {
+      if (response.success) {
         toast.success(
-          `Upfront costs of ${formatCurrency(
-            upfrontCosts.totalUpfront
-          )} deducted from your contribution balance`,
-          {
-            duration: 5000,
-          }
+          `${currentLoanConfig.name} application submitted successfully!`
         );
+        setIsDialogOpen(false);
       } else {
-        toast.success(
-          `Upfront costs of ${formatCurrency(
-            upfrontCosts.totalUpfront
-          )} paid successfully`,
-          {
-            duration: 5000,
-          }
+        setError(response.message || "Loan Request Failed. Please try again.");
+        setIsLoading(false);
+      }
+    } catch (error: any) {
+      // Handle API errors
+      const apiError = error as ApiError;
+
+      // Check for field-specific errors
+      if (apiError.errors && Object.keys(apiError.errors).length > 0) {
+        const firstError = Object.values(apiError.errors)[0][0];
+        setError(firstError || apiError.message);
+      } else {
+        setError(
+          apiError.message ||
+            "Invalid request. Please check your email/phone and password."
         );
       }
+
+      setIsLoading(false);
+
+      // Fallback to localStorage for demo/admin users if API fails
+      if (
+        apiError.status === 404 ||
+        apiError.status === 500 ||
+        !apiError.status
+      ) {
+        console.warn("API login failed, trying localStorage fallback");
+      }
+    } finally {
+      setIsLoading(false);
     }
+
+    // loanApplications.push(newApplication);
+    // localStorage.setItem("loanApplications", JSON.stringify(loanApplications));
+
+    // Update guarantor records if they are a registered customer
+    // if (isGuarantorRegistered && guarantorCustomerId) {
+    //   const guarantorRecords = JSON.parse(
+    //     localStorage.getItem("guarantorRecords") || "[]"
+    //   );
+    //   guarantorRecords.push({
+    //     id: Date.now(),
+    //     guarantorNIN: guarantorNIN,
+    //     guarantorCustomerId: guarantorCustomerId,
+    //     guarantorName: guarantorName,
+    //     loanApplicationId: newApplication.id,
+    //     borrowerName: "Current User", // In production, use actual borrower name
+    //     loanAmount: loanAmount[0],
+    //     loanType: currentLoanConfig.name,
+    //     status: "active", // active, completed, defaulted
+    //     guaranteedAt: new Date().toISOString(),
+    //   });
+    //   localStorage.setItem(
+    //     "guarantorRecords",
+    //     JSON.stringify(guarantorRecords)
+    //   );
+    // }
+
+    // Send SMS notification to guarantor
+    // try {
+    //   sendGuarantorSMS(guarantorPhone, guarantorName, loanAmount[0]);
+    //   toast.success(
+    //     `${currentLoanConfig.name} application submitted! Guarantor has been notified via SMS.`
+    //   );
+    // } catch (error) {
+    //   toast.success(
+    //     `${currentLoanConfig.name} application submitted! You'll receive a notification within 24 hours.`
+    //   );
+    // }
+
+    // Show appropriate message about upfront costs
+    // if (upfrontPaid) {
+    //   if (paidFrom === "contribution_balance") {
+    //     toast.success(
+    //       `Upfront costs of ${formatCurrency(
+    //         upfrontCosts.totalUpfront
+    //       )} deducted from your contribution balance`,
+    //       {
+    //         duration: 5000,
+    //       }
+    //     );
+    //   } else {
+    //     toast.success(
+    //       `Upfront costs of ${formatCurrency(
+    //         upfrontCosts.totalUpfront
+    //       )} paid successfully`,
+    //       {
+    //         duration: 5000,
+    //       }
+    //     );
+    //   }
+    // }
     // }
   };
 
@@ -1016,7 +1095,6 @@ export function LoanSection() {
       // if (response?.success && response?.loanRequests) {
       if (response?.loanRequests) {
         // Store auth token
-        console.log(response, "response");
 
         setLoanRequests(response?.loanRequests || []);
       } else {
@@ -1056,8 +1134,6 @@ export function LoanSection() {
   useEffect(() => {
     fetchLoanData();
   }, []);
-
-  console.log(loanRequests);
 
   return (
     <div className="space-y-6 pb-20 px-4">
@@ -1177,7 +1253,7 @@ export function LoanSection() {
       {/* Loan Type Cards */}
       <Tabs
         value={selectedLoanType}
-        onValueChange={(value) => handleLoanTypeChange(value as LoanType)}
+        onValueChange={(value: any) => handleLoanTypeChange(value as LoanType)}
         className="space-y-6"
       >
         <TabsList className="grid w-full grid-cols-3 h-auto">
@@ -1275,9 +1351,18 @@ export function LoanSection() {
               ) : (
                 <Dialog
                   open={isDialogOpen && selectedLoanType === "sme"}
-                  onOpenChange={(open) => {
+                  onOpenChange={(open: boolean) => {
                     setIsDialogOpen(open);
-                    if (!open) {
+                    if (open) {
+                      // Only reset if not loading from pending applications
+                      // Check if loanData has refNo or upfrontPaymentStatus is "paid"
+                      resetFormFields();
+                      // console.log(loanData);
+                      
+                      // if (!loanData?.refNo && loanData?.upfrontPaymentStatus !== "paid") {
+                      //   resetFormFields();
+                      // }
+                    } else {
                       // Reset upfront payment states when dialog closes
                       setUpfrontPaidInDialog(false);
                       setPayUpfrontFromContributions(false);
@@ -1370,9 +1455,17 @@ export function LoanSection() {
               ) : (
                 <Dialog
                   open={isDialogOpen && selectedLoanType === "business"}
-                  onOpenChange={(open) => {
+                  onOpenChange={(open: boolean) => {
                     setIsDialogOpen(open);
-                    if (!open) {
+                    if (open) {
+                      // Only reset if not loading from pending applications
+                      // Check if loanData has refNo or upfrontPaymentStatus is "paid"
+                      resetFormFields();
+                      // console.log(loanData);
+                      // if (!loanData?.refNo && loanData?.upfrontPaymentStatus !== "paid") {
+                      //   resetFormFields();
+                      // }
+                    } else {
                       // Reset upfront payment states when dialog closes
                       setUpfrontPaidInDialog(false);
                       setPayUpfrontFromContributions(false);
@@ -1464,7 +1557,18 @@ export function LoanSection() {
               ) : (
                 <Dialog
                   open={isDialogOpen && selectedLoanType === "jumbo"}
-                  onOpenChange={setIsDialogOpen}
+                  onOpenChange={(open) => {
+                    setIsDialogOpen(open);
+                    if (open) {
+                      // Only reset if not loading from pending applications
+                      // Check if loanData has refNo or upfrontPaymentStatus is "paid"
+                      resetFormFields();
+                      // console.log(loanData);
+                      // if (!loanData?.refNo && loanData?.upfrontPaymentStatus !== "paid") {
+                      //   resetFormFields();
+                      // }
+                    }
+                  }}
                 >
                   <DialogTrigger asChild>
                     <Button className="w-full bg-gradient-to-r from-orange-500 via-red-500 to-pink-500 hover:from-orange-600 hover:via-red-600 hover:to-pink-600 text-white shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-[1.02]">
@@ -2231,7 +2335,10 @@ export function LoanSection() {
             <div className="h-3 w-3 sm:h-5 sm:w-5 border-2 border-[#000000] border-t-transparent rounded-full animate-spin mr-1.5" />
           </div>
         ) : (
-          <>
+          <div
+            className="overflow-y-auto space-y-4"
+            style={{ maxHeight: "400px" }}
+          >
             {loanRequests?.filter((item: any) => item?.status === "draft")
               .length > 0 && (
               <>
@@ -2242,7 +2349,7 @@ export function LoanSection() {
                       ? loanTypes[loan.loanType as LoanType]?.name
                       : "Loan";
                     return (
-                      <Card key={loan.id} className="p-6">
+                      <Card key={loan._id} className="p-6">
                         <div className="space-y-4">
                           <div
                             className="flex items-start justify-between"
@@ -2281,14 +2388,84 @@ export function LoanSection() {
                                       ).toLocaleDateString()
                                     : ""}
                                 </p>
+                                {loan?.upfrontPaymentStatus === "paid" && (
+                                  <div className="py-4 flex flex-col gap-2">
+                                    <p className="text-xs text-green-600">
+                                      You can apply for loan now
+                                    </p>
+
+                                    {/* <Dialog
+                                      open={
+                                        isDialogOpen &&
+                                        selectedLoanType === "sme"
+                                      }
+                                      onOpenChange={(open) => {
+                                        setIsDialogOpen(open);
+                                        if (!open) {
+                                          // Reset upfront payment states when dialog closes
+                                          setUpfrontPaidInDialog(false);
+                                          setPayUpfrontFromContributions(false);
+                                          setLoanData(loan);
+                                        }
+                                      }}
+                                    >
+                                      <DialogTrigger asChild> */}
+                                    <Button
+                                      className="w-full bg-green-600 text-sm hover:bg-green-700"
+                                      onClick={() => {
+                                        // Set loan data first, then open dialog
+                                        // onOpenChange will check and not reset if loanData has refNo
+                                        setLoanData(loan);
+                                        setIsDialogOpen(true);
+                                        handleLoanTypeChange(
+                                          loan.loanType as LoanType
+                                        );
+                                        handleLoanAmountInputChange(
+                                          loan?.loanAmount
+                                        );
+                                        handleSliderChange([loan?.loanAmount]);
+                                        setLoanPeriod(
+                                          loan?.repaymentPeriod.split(" ")[0]
+                                        );
+                                        setLoanPurpose(loan?.loanPurpose || "");
+                                        setGuarantorNIN(
+                                          loan?.gurantorInformation?.gNIN || ""
+                                        );
+                                        setGuarantorName(
+                                          loan?.gurantorInformation
+                                            ?.gFullName || ""
+                                        );
+                                        setGuarantorPhone(
+                                          loan?.gurantorInformation?.gPhone ||
+                                            ""
+                                        );
+                                        setGuarantorRelationship(
+                                          loan?.gurantorInformation
+                                            ?.gRelationship || ""
+                                        );
+                                        setGuarantorAddress(
+                                          loan?.gurantorInformation?.gAddress ||
+                                            ""
+                                        );
+                                      }}
+                                    >
+                                      Apply for Loan
+                                    </Button>
+                                    {/* </DialogTrigger>
+                                      {renderLoanApplicationDialog()}
+                                    </Dialog> */}
+                                  </div>
+                                )}
                               </div>
                             </div>
                             <Badge className="bg-gray-100 text-gray-700">
                               {loan?.upfrontPaymentStatus === "pending"
                                 ? "Pending Confirmation"
-                                : loan?.upfrontPaymentStatus === "completed"
+                                : loan?.upfrontPaymentStatus === "paid"
                                 ? "Confirmed"
-                                : "Draft"}
+                                : loan?.upfrontPaymentStatus === "rejected"
+                                ? "Rejected"
+                                : ""}
                             </Badge>
                           </div>
                         </div>
@@ -2297,7 +2474,7 @@ export function LoanSection() {
                   })}
               </>
             )}
-          </>
+          </div>
         )}
       </div>
 
@@ -3188,13 +3365,15 @@ export function LoanSection() {
                 <Coins className="h-4 w-4" />
                 Upfront Payment
               </h3>
-              <Alert className="bg-orange-50 border-orange-200 py-2 px-3">
-                <AlertCircle className="h-3.5 w-3.5 text-orange-600" />
-                <AlertDescription className="text-orange-800 text-xs">
-                  <strong>Required:</strong> Pay upfront costs before
-                  submitting. 10% deposit is refundable.
-                </AlertDescription>
-              </Alert>
+              {loanData?.upfrontPaymentStatus !== "paid" && (
+                <Alert className="bg-orange-50 border-orange-200 py-2 px-3">
+                  <AlertCircle className="h-3.5 w-3.5 text-orange-600" />
+                  <AlertDescription className="text-orange-800 text-xs">
+                    <strong>Required:</strong> Pay upfront costs before
+                    submitting. 10% deposit is refundable.
+                  </AlertDescription>
+                </Alert>
+              )}
 
               {(() => {
                 const contributionBalance = parseFloat(
@@ -3208,7 +3387,7 @@ export function LoanSection() {
                 return (
                   <>
                     {/* Payment Status Display */}
-                    {paymentCompleted ? (
+                    {loanData?.upfrontPaymentStatus === "paid" ? (
                       <Card className="p-2.5 bg-green-50 border-green-200">
                         <div className="flex items-center gap-2">
                           <div className="bg-green-600 p-1.5 rounded-full">
@@ -3301,7 +3480,7 @@ export function LoanSection() {
                         </Button>
 
                         {/* Insufficient funds message */}
-                        {!canPayFromContributions && (
+                        {/* {!canPayFromContributions && (
                           <Alert className="bg-yellow-50 border-yellow-200 py-1.5 px-2.5">
                             <AlertCircle className="h-3 w-3 text-yellow-600" />
                             <AlertDescription className="text-yellow-800 text-xs">
@@ -3309,7 +3488,7 @@ export function LoanSection() {
                               above.
                             </AlertDescription>
                           </Alert>
-                        )}
+                        )} */}
                       </>
                     )}
                   </>
@@ -3328,7 +3507,7 @@ export function LoanSection() {
 
               {/* Loan Terms */}
               <Card className="p-2.5 bg-yellow-50 border-yellow-200">
-                <h4 className="text-xs text-yellow-900 mb-1.5">Loan Terms:</h4>
+                <h4 className="text-xs text-yellow-900 mb-1">Loan Terms:</h4>
                 <ul className="text-xs text-yellow-800 space-y-0.5 list-disc list-inside">
                   <li>Interest: {interestRate}% (6wks=10%, 12wks=20%)</li>
                   <li>Weekly installments via direct debit</li>
@@ -3437,17 +3616,27 @@ export function LoanSection() {
                 !acceptedTerms ||
                 !acceptedGuarantorTerms ||
                 !termsAccepted ||
-                (!payUpfrontFromContributions && !upfrontPaidInDialog)
+                (!payUpfrontFromContributions &&
+                  loanData?.upfrontPaymentStatus !== "paid")
               }
             >
-              {!termsAccepted
-                ? "Accept Terms First"
-                : !payUpfrontFromContributions && !upfrontPaidInDialog
-                ? "Pay Upfront Costs"
-                : `Submit Application`}
+              {isLoading ? (
+                <>
+                  <div className="h-3 w-3 sm:h-3.5 sm:w-3.5 border-2 border-white border-t-transparent rounded-full animate-spin mr-1.5" />
+                  Submitting...
+                </>
+              ) : !termsAccepted ? (
+                "Accept Terms First"
+              ) : !payUpfrontFromContributions &&
+                loanData?.upfrontPaymentStatus !== "paid" ? (
+                "Pay Upfront Costs"
+              ) : (
+                `Submit Application`
+              )}
             </Button>
             {(!termsAccepted ||
-              (!payUpfrontFromContributions && !upfrontPaidInDialog)) && (
+              (!payUpfrontFromContributions &&
+                loanData?.upfrontPaymentStatus !== "paid")) && (
               <p className="text-xs text-center text-orange-600">
                 {!termsAccepted
                   ? "Read & accept terms above"

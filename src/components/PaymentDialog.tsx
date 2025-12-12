@@ -171,6 +171,9 @@ export function PaymentDialog(props: PaymentDialogProps) {
         setCompanyAccount(JSON.parse(saved));
       }
     };
+    if (props?.loanData) {
+      
+    }
 
     // Check for updates periodically
     const interval = setInterval(handleUpdate, 1000);

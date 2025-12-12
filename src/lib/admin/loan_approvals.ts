@@ -1,4 +1,4 @@
-import api from "./api";
+import api from "../api";
 
 export interface ApiError {
   message: string;
@@ -12,9 +12,9 @@ export interface LoanResponse {
   loanRequests: any[];
 }
 
-export const getLoanData = async () => {
+export const getLoanApplications = async () => {
   try {
-    const response = await api.get<LoanResponse>("loan/myDraftRequests");
+    const response = await api.get<LoanResponse>("loan/allRequests");
     return response.data;
   } catch (error: any) {
     if (error.response) {
@@ -38,17 +38,18 @@ export const getLoanData = async () => {
   }
 };
 
-export const upfrontTransfer = async (loanData: any) => {
+export const decideUpfront = async (status: string, id: number) => {
   try {
-    const response = await api.post("loan/initiateRequest", loanData);
+    const response = await api.get<LoanResponse>(
+      `loan/decideUpfrontCostPayment/${id}?status=${status}`
+    );
     return response.data;
   } catch (error: any) {
     if (error.response) {
       const { status, data } = error.response;
       throw {
         message:
-          data?.message ||
-          "Failed to initiate upfront confirmation. Please try again.",
+          data?.message || "Failed to fetch loan data. Please try again.",
         errors: data?.errors || {},
         status,
       } as ApiError;
@@ -65,9 +66,36 @@ export const upfrontTransfer = async (loanData: any) => {
   }
 };
 
-export const applyForLoan = async (loanData: any) => {
+export const decideLoan = async (status: string, id: number) => {
   try {
-    const response = await api.post("loan/request", loanData);
+    const response = await api.get<LoanResponse>(
+      `loan/decideRequest/${id}?status=${status}`
+    );
+    return response.data;
+  } catch (error: any) {
+    if (error.response) {
+      const { status, data } = error.response;
+      throw {
+        message:
+          data?.message || "Failed to fetch loan data. Please try again.",
+        errors: data?.errors || {},
+        status,
+      } as ApiError;
+    } else if (error.request) {
+      throw {
+        message: "Network error. Please check your connection and try again.",
+      } as ApiError;
+    } else {
+      throw {
+        message:
+          error.message || "An unexpected error occurred. Please try again.",
+      } as ApiError;
+    }
+  }
+};
+export const upfrontTransfer = async (loanData: any) => {
+  try {
+    const response = await api.post("loan/initiateRequest", loanData);
     return response.data;
   } catch (error: any) {
     if (error.response) {
@@ -75,7 +103,7 @@ export const applyForLoan = async (loanData: any) => {
       throw {
         message:
           data?.message ||
-          "Failed to initiate loan request. Please try again.",
+          "Failed to initiate upfront confirmation. Please try again.",
         errors: data?.errors || {},
         status,
       } as ApiError;
