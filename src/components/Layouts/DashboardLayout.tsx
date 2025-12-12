@@ -199,21 +199,20 @@ export function DashboardLayout({
       {/* ...REMOVE hard-coded renderAdminContent/renderUserContent here... */}
 
       <main
-      // className={`mx-auto px-4 sm:px-6 py-4 sm:py-6 transition-all duration-300 ${
-      //       isAdmin
-      //         ? sidebarCollapsed
-      //           ? "lg:ml-16 max-w-7xl"
-      //           : "lg:ml-64 max-w-7xl"
-      //         : "max-w-md pb-20"
-      //     }`}
+        // className={`mx-auto px-4 sm:px-6 py-4 sm:py-6 transition-all duration-300 ${
+        //       isAdmin
+        //         ? sidebarCollapsed
+        //           ? "lg:ml-16 max-w-7xl"
+        //           : "lg:ml-64 max-w-7xl"
+        //         : "max-w-md pb-20"
+        //     }`}
         className={`mx-auto py-4 sm:py-6 transition-all duration-300 ${
           // isAdmin ? "max-w-7xl" : "max-w-md pb-20"
           isAdmin
             ? props?.sidebarCollapsed
               ? "lg:ml-16 max-w-7xl px-4 sm:px-6"
               : "lg:ml-64 max-w-7xl px-4 sm:px-6"
-            :
-            "max-w-md pb-20"
+            : "max-w-md pb-20"
         }`}
       >
         {renderContent()}{" "}
@@ -329,6 +328,7 @@ export function DashboardLayout({
                   <button
                     key={item.id}
                     onClick={() => {
+                      navigate(item.route);
                       props?.setActiveTab(item.id);
                       props?.setMobileMenuOpen(false);
                     }}
