@@ -742,7 +742,7 @@ export function LoanApprovals() {
                   className="w-full sm:w-auto bg-green-600 hover:bg-green-700 text-xs sm:text-sm h-8 sm:h-9"
                   onClick={() => {
                     if (application?.status === "draft")
-                      handleUpfrontDecide(application, "approved");
+                      handleUpfrontDecide(application, "paid");
                     else handleLoanDecide(application, "approved");
                   }}
                 >
