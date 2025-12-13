@@ -3616,7 +3616,8 @@ export function LoanSection() {
                 !acceptedTerms ||
                 !acceptedGuarantorTerms ||
                 !termsAccepted ||
-                (!payUpfrontFromContributions &&
+                // (!payUpfrontFromContributions &&
+                (loanData?.upfrontPaymentStatus !== "approved" &&
                   loanData?.upfrontPaymentStatus !== "paid")
               }
             >
@@ -3627,15 +3628,17 @@ export function LoanSection() {
                 </>
               ) : !termsAccepted ? (
                 "Accept Terms First"
-              ) : !payUpfrontFromContributions &&
-                loanData?.upfrontPaymentStatus !== "paid" ? (
+              ) : 
+              // !payUpfrontFromContributions &&
+                (loanData?.upfrontPaymentStatus !== "paid" && loanData?.upfrontPaymentStatus !== "approved" )? (
                 "Pay Upfront Costs"
               ) : (
                 `Submit Application`
               )}
             </Button>
             {(!termsAccepted ||
-              (!payUpfrontFromContributions &&
+              // (!payUpfrontFromContributions &&
+              (loanData?.upfrontPaymentStatus !== "approved" &&
                 loanData?.upfrontPaymentStatus !== "paid")) && (
               <p className="text-xs text-center text-orange-600">
                 {!termsAccepted
